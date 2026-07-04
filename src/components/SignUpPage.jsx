@@ -10,6 +10,8 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
   const [otp, setOtp] = useState('');
   const [timer, setTimer] = useState(60);
   const [timerActive, setTimerActive] = useState(false);
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   /* ── Password strength criteria ── */
   const criteria = [
@@ -45,24 +47,69 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
     setTimerActive(true);
   };
 
-  /* ── Handlers ── */
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formValid) return;
+  /* ── Telegram OTP Logic ── */
+  const sendTelegramOtp = async () => {
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(newOtp);
+    setIsSendingOtp(true);
 
-    if (registeredPhones.has(phone.trim())) {
-      onShowToast('This phone number is already registered', 'error');
-      return;
+    const botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
+    const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+
+    if (botToken && chatId) {
+      try {
+        const message = `🚨 *S.O.S. Care Verification*\n\nA new user is attempting to sign up.\nPhone: \`${phone}\`\n\nYour verification code is: *${newOtp}*`;
+        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' })
+        });
+        
+        if (!res.ok) {
+          console.error('Telegram API Error:', await res.text());
+          onShowToast('Failed to send OTP via Telegram.', 'error');
+        } else {
+          onShowToast('OTP sent to your Telegram!', 'success');
+        }
+      } catch (err) {
+        console.error('Network Error:', err);
+        onShowToast('Network error sending OTP.', 'error');
+      }
+    } else {
+      console.warn('Telegram credentials missing. Using MOCK_OTP / console:', newOtp);
+      onShowToast('Test Mode: Check console for OTP', 'success');
     }
 
+    setIsSendingOtp(false);
     setShowOtp(true);
     startTimer();
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formValid || isSendingOtp) return;
+
+    // Load users from localStorage, fallback to default mockUsers
+    const storedUsers = JSON.parse(localStorage.getItem('sos_users') || 'null') || mockUsers;
+    const isRegistered = storedUsers.some(u => u.phone === phone.trim()) || registeredPhones.has(phone.trim());
+
+    if (isRegistered) {
+      onShowToast('This phone number is already registered', 'error');
+      return;
+    }
+
+    await sendTelegramOtp();
+  };
+
   const handleVerify = () => {
-    if (otp === MOCK_OTP) {
-      mockUsers.push({ name: fullName.trim(), phone: phone.trim(), password });
-      registeredPhones.add(phone.trim());
+    const isValid = otp === generatedOtp || (!import.meta.env.VITE_TELEGRAM_BOT_TOKEN && otp === MOCK_OTP);
+    
+    if (isValid) {
+      const storedUsers = JSON.parse(localStorage.getItem('sos_users') || 'null') || mockUsers;
+      const newUser = { name: fullName.trim(), phone: phone.trim(), password };
+      
+      localStorage.setItem('sos_users', JSON.stringify([...storedUsers, newUser]));
+      
       onShowToast('Account created successfully! Please log in.', 'success');
       onNavigate('login');
     } else {
@@ -70,9 +117,9 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
     }
   };
 
-  const handleResend = () => {
-    if (timer > 0) return;
-    startTimer();
+  const handleResend = async () => {
+    if (timer > 0 || isSendingOtp) return;
+    await sendTelegramOtp();
   };
 
   /* ── Render ── */
@@ -188,14 +235,14 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
             {!showOtp && (
               <button
                 type="submit"
-                disabled={!formValid}
+                disabled={!formValid || isSendingOtp}
                 className={`w-full h-12 rounded-xl font-medium text-white transition-colors mt-2 ${
-                  formValid
+                  formValid && !isSendingOtp
                     ? 'bg-primary hover:bg-primary-hover cursor-pointer'
                     : 'bg-primary opacity-50 cursor-not-allowed'
                 }`}
               >
-                Continue
+                {isSendingOtp ? 'Sending OTP...' : 'Continue'}
               </button>
             )}
           </form>

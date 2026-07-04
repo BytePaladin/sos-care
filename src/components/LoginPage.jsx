@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { mockUsers } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import { mockUsers as defaultUsers } from '../data/mockData';
 
 export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
   const [phone, setPhone] = useState('');
@@ -17,9 +17,17 @@ export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
 
     setIsLoading(true);
 
+    // Load users from localStorage, fallback to default mockUsers
+    const storedUsers = JSON.parse(localStorage.getItem('sos_users') || 'null') || defaultUsers;
+    
+    // Ensure default demo user exists in localStorage if first time
+    if (!localStorage.getItem('sos_users')) {
+      localStorage.setItem('sos_users', JSON.stringify(defaultUsers));
+    }
+
     // Simulate API delay
     setTimeout(() => {
-      const user = mockUsers.find(
+      const user = storedUsers.find(
         (u) => u.phone === phone && u.password === password
       );
 

@@ -5,9 +5,15 @@ import { useTheme } from '../context/ThemeContext';
 export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   const { isDark } = useTheme();
   
+  const storageKey = `sos_chats_${userName?.replace(/\s+/g, '_')}`;
+  const [chats, setChats] = useState(() => JSON.parse(localStorage.getItem(storageKey) || '[]'));
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
-  const [activeChat, setActiveChat] = useState(null);
+  const [activeChatId, setActiveChatId] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(chats));
+  }, [chats, storageKey]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -32,13 +38,48 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   const sendMessage = (text) => {
     if (!text.trim()) return;
     const userMsg = { role: 'user', text: text.trim() };
-    setMessages((prev) => [...prev, userMsg]);
+    
+    let currentChatId = activeChatId;
+    let newChats = [...chats];
+    let chatIndex = newChats.findIndex(c => c.id === currentChatId);
+
+    if (currentChatId === null || chatIndex === -1) {
+      currentChatId = Date.now();
+      const newChat = {
+        id: currentChatId,
+        title: text.trim().substring(0, 30) + (text.length > 30 ? '...' : ''),
+        preview: text.trim(),
+        time: 'Just now',
+        messages: [userMsg]
+      };
+      newChats.unshift(newChat);
+      setActiveChatId(currentChatId);
+      chatIndex = 0;
+    } else {
+      newChats[chatIndex].messages.push(userMsg);
+      newChats[chatIndex].preview = text.trim();
+      newChats[chatIndex].time = 'Just now';
+    }
+
+    setMessages([...newChats[chatIndex].messages]);
+    setChats(newChats);
     setInputText('');
 
     setTimeout(() => {
-      const reply =
-        cannedResponses[Math.floor(Math.random() * cannedResponses.length)];
-      setMessages((prev) => [...prev, { role: 'bot', text: reply }]);
+      const reply = cannedResponses[Math.floor(Math.random() * cannedResponses.length)];
+      const botMsg = { role: 'bot', text: reply };
+      
+      setChats(prevChats => {
+        const updated = [...prevChats];
+        const idx = updated.findIndex(c => c.id === currentChatId);
+        if (idx !== -1) {
+          updated[idx].messages.push(botMsg);
+          updated[idx].preview = reply;
+        }
+        return updated;
+      });
+      
+      setMessages(prev => [...prev, botMsg]);
     }, 800);
   };
 
@@ -53,21 +94,23 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
 
   const handleNewChat = () => {
     setMessages([]);
-    setActiveChat(null);
+    setActiveChatId(null);
     setSidebarOpen(false);
   };
 
-  const handleSelectChat = (idx) => {
-    setActiveChat(idx);
+  const handleSelectChat = (id) => {
+    setActiveChatId(id);
+    const chat = chats.find(c => c.id === id);
+    setMessages(chat ? chat.messages : []);
     setSidebarOpen(false);
   };
 
-  const filteredChats = mockRecentChats.filter((c) =>
+  const filteredChats = chats.filter((c) =>
     c.title.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const currentTitle =
-    activeChat !== null ? mockRecentChats[activeChat]?.title : 'New Chat';
+  const currentChat = chats.find(c => c.id === activeChatId);
+  const currentTitle = currentChat ? currentChat.title : 'New Chat';
 
   const suggestions = [
     'What are early signs of kidney disease?',
@@ -161,12 +204,12 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
 
         {/* ── Recent chats list ── */}
         <nav className="flex-1 overflow-y-auto px-3 pb-2 space-y-0.5 scrollbar-thin">
-          {filteredChats.map((chat, idx) => {
-            const isActive = activeChat === idx;
+          {filteredChats.map((chat) => {
+            const isActive = activeChatId === chat.id;
             return (
               <button
-                key={idx}
-                onClick={() => handleSelectChat(idx)}
+                key={chat.id}
+                onClick={() => handleSelectChat(chat.id)}
                 className={`
                   w-full text-left rounded-xl p-3 cursor-pointer
                   transition-all duration-200 group
