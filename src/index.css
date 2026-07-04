@@ -1,0 +1,221 @@
+@import "tailwindcss";
+
+/* ============================================
+   Material You Design Tokens — S.O.S. Theme
+   Teal-centric healthcare palette
+   ============================================ */
+
+@theme {
+  --color-primary: #006A6A;
+  --color-on-primary: #FFFFFF;
+  --color-primary-container: #9CF1F0;
+  --color-on-primary-container: #002020;
+  --color-primary-hover: #005757;
+
+  --color-secondary: #4A6363;
+  --color-on-secondary: #FFFFFF;
+  --color-secondary-container: #CCE8E7;
+  --color-on-secondary-container: #051F1F;
+
+  --color-tertiary: #4B607C;
+  --color-on-tertiary: #FFFFFF;
+  --color-tertiary-container: #D3E4FF;
+
+  --color-error: #BA1A1A;
+  --color-on-error: #FFFFFF;
+  --color-error-container: #FFDAD6;
+  --color-on-error-container: #410002;
+
+  --color-success: #006D3B;
+  --color-on-success: #FFFFFF;
+  --color-success-container: #9CF6B5;
+
+  --color-surface: #F4FBFA;
+  --color-on-surface: #161D1D;
+  --color-surface-dim: #D5DBDB;
+  --color-surface-bright: #F4FBFA;
+  --color-surface-container-lowest: #FFFFFF;
+  --color-surface-container-low: #EFF5F5;
+  --color-surface-container: #E9EFEF;
+  --color-surface-container-high: #E3E9E9;
+  --color-surface-container-highest: #DDE4E4;
+
+  --color-outline: #6F7979;
+  --color-outline-variant: #BEC9C8;
+
+  /* Fonts */
+  --font-headline: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+/* ============================================
+   Dark Mode Overrides
+   ============================================ */
+.dark {
+  --color-primary: #80D5D4;
+  --color-on-primary: #003737;
+  --color-primary-container: #004F50;
+  --color-on-primary-container: #9CF1F0;
+  --color-primary-hover: #99E0DF;
+
+  --color-secondary: #B0CCCC;
+  --color-on-secondary: #1B3434;
+  --color-secondary-container: #324B4B;
+  --color-on-secondary-container: #CCE8E7;
+
+  --color-tertiary: #B3C8E8;
+  --color-on-tertiary: #1C314B;
+  --color-tertiary-container: #334863;
+
+  --color-error: #FFB4AB;
+  --color-on-error: #690005;
+  --color-error-container: #93000A;
+  --color-on-error-container: #FFDAD6;
+
+  --color-success: #80D99B;
+  --color-on-success: #00391C;
+  --color-success-container: #00522B;
+
+  --color-surface: #0E1515;
+  --color-on-surface: #DDE4E4;
+  --color-surface-dim: #0E1515;
+  --color-surface-bright: #343A3A;
+  --color-surface-container-lowest: #090F0F;
+  --color-surface-container-low: #161D1D;
+  --color-surface-container: #1A2121;
+  --color-surface-container-high: #252B2B;
+  --color-surface-container-highest: #303636;
+
+  --color-outline: #889392;
+  --color-outline-variant: #3F4948;
+}
+
+/* ============================================
+   Base Styles Reset
+   ============================================ */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #121212;
+  color: #ffffff;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastSlideOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(100%); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.4s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.4s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
+.animate-toast-in {
+  animation: toastSlideIn 0.4s ease-out forwards;
+}
+
+.animate-toast-out {
+  animation: toastSlideOut 0.3s ease-in forwards;
+}
+
+/* ============================================
+   Scrollbar Styling
+   ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}
+
+/* ============================================
+   Material You Surface Elevation
+   ============================================ */
+.elevation-1 {
+  box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+.elevation-2 {
+  box-shadow: 0 2px 6px 2px rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+.elevation-3 {
+  box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.08), 0 1px 3px 0 rgba(0, 0, 0, 0.06);
+}
+
+.dark .elevation-1 {
+  box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.dark .elevation-2 {
+  box-shadow: 0 2px 6px 2px rgba(0, 0, 0, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.dark .elevation-3 {
+  box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.25), 0 1px 3px 0 rgba(0, 0, 0, 0.2);
+}
