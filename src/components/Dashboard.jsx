@@ -344,7 +344,7 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
                   Hello, {userName} 👋
                 </h2>
                 <p className={`text-sm mb-8 text-center max-w-md ${isDark ? 'text-gray-400' : 'text-[#444746]'}`}>
-                  I'm your S.O.S. health assistant. Ask me anything about
+                  I'm your S.O.S. Care health assistant. Ask me anything about
                   symptoms, lab results, or kidney health.
                 </p>
 
