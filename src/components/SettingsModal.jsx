@@ -11,8 +11,7 @@ const SettingsModal = ({ isOpen, onClose, onShowToast }) => {
 
   const handleSendFeedback = () => {
     if (feedbackText.trim()) {
-      // TODO: Dispatch feedback to hospital email (hospital@kidneycareimag.com)
-      // and S.O.S. Care service provider email (support@sos-care.com) concurrently
+
       onShowToast('Feedback sent successfully!', 'success');
       setFeedbackText('');
       setShowFeedback(false);

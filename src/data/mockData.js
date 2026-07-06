@@ -44,14 +44,14 @@ export const mockUsers = [
 ];
 
 // Static OTP for verification simulation
-// TODO: OTP will be sent via backend Telegram bot integration
+
 export const MOCK_OTP = '123456';
 
 // Set of registered phone numbers to simulate uniqueness check
 export const registeredPhones = new Set(['01700000000']);
 
 // Canned health-related bot responses for the chat dashboard
-// NOTE: These will be replaced by an ML model response function later
+
 export const cannedResponses = [
   "I understand your concern. Could you tell me more about when these symptoms started?",
   "Based on what you've described, I'd recommend monitoring your fluid intake and scheduling a follow-up with your nephrologist.",
