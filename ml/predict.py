@@ -1,0 +1,68 @@
+"""Combine the ML classifier with the rule-based safety net (spec.md 2.4).
+
+This is the hybrid labeling logic in one place:
+
+    finalLabel = RED            if the safety net flags a critical phrase
+               = classifier(text)  otherwise
+
+`ruleOverride` reports whether the deterministic keyword layer fired. Both the
+Flask service (app.py) and the CLI below call `predict_label`.
+"""
+
+import os
+import sys
+
+import joblib
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _HERE)  # so the pickled vectorizer can import preprocess.clean_text
+import safety_net  # noqa: E402
+
+MODEL_PATH = os.path.join(_HERE, "models", "severity_model.joblib")
+
+_model = None
+
+
+def load_model(path: str = MODEL_PATH):
+    """Load and cache the serialized pipeline. Raises if it hasn't been trained."""
+    global _model
+    if _model is None:
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"Model not found at {path}. Run: python training/train.py")
+        _model = joblib.load(path)
+    return _model
+
+
+def is_model_loaded() -> bool:
+    return _model is not None
+
+
+def predict_label(text: str) -> dict:
+    """Return the hybrid severity decision for one message.
+
+    {"mlLabel": ..., "ruleOverride": bool, "finalLabel": ...} -- exactly the
+    contract the backend consumes (spec.md 6.3.5).
+    """
+    model = load_model()
+    ml_label = str(model.predict([text])[0])
+    sn = safety_net.check(text)
+    rule_override = sn["triggered"]
+    final_label = "RED" if rule_override else ml_label
+    return {
+        "mlLabel": ml_label,
+        "ruleOverride": rule_override,
+        "finalLabel": final_label,
+    }
+
+
+if __name__ == "__main__":
+    load_model()
+    demo = [
+        "I haven't passed any urine since yesterday",   # RED (safety net + model)
+        "My ankles have been swelling for two days",    # YELLOW
+        "Can I eat bananas on my current diet?",         # GREEN
+        "My heart is racing and I feel like I might drop",  # RED-ish, model-driven
+    ]
+    for msg in demo:
+        print(predict_label(msg), "|", msg)
