@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Coverage / build
+coverage/
+dist/
