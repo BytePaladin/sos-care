@@ -4,6 +4,7 @@ import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
 import SignUpPage from './components/SignUpPage';
 import Dashboard from './components/Dashboard';
+import StaffDashboard from './components/StaffDashboard';
 import SettingsModal from './components/SettingsModal';
 import Toast from './components/Toast';
 
@@ -59,6 +60,15 @@ function AppContent() {
           />
         );
       case 'dashboard':
+        if (loggedInUser?.role === 'staff') {
+          return (
+            <StaffDashboard
+              user={loggedInUser}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onLogout={handleLogout}
+            />
+          );
+        }
         return (
           <Dashboard
             userName={loggedInUser?.name || 'Patient'}

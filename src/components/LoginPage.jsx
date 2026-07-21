@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { mockUsers as defaultUsers } from '../data/mockData';
+import { useState } from 'react';
+import { api } from '../services/api';
+import { mockUsers as defaultUsers, mockStaffUsers } from '../data/mockData';
 
 export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
   const [phone, setPhone] = useState('');
@@ -7,7 +8,7 @@ export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!phone.trim() || !password.trim()) {
@@ -17,27 +18,31 @@ export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
 
     setIsLoading(true);
 
-    // Load users from localStorage, fallback to default mockUsers
-    const storedUsers = JSON.parse(localStorage.getItem('sos_users') || 'null') || defaultUsers;
-    
-    // Ensure default demo user exists in localStorage if first time
-    if (!localStorage.getItem('sos_users')) {
-      localStorage.setItem('sos_users', JSON.stringify(defaultUsers));
-    }
+    try {
+      const user = await api.login(phone.trim(), password.trim());
+      onLogin(user);
+      onShowToast(`Welcome back, ${user.name}!`, 'success');
+    } catch (err) {
+      // Fallback to local storage if offline
+      const storedUsers = JSON.parse(localStorage.getItem('sos_users') || 'null') || defaultUsers;
+      const storedStaff = JSON.parse(localStorage.getItem('sos_users_staff') || 'null') || mockStaffUsers;
 
-    // Simulate API delay
-    setTimeout(() => {
-      const user = storedUsers.find(
-        (u) => u.phone === phone && u.password === password
-      );
-
-      if (user) {
-        onLogin(user);
-      } else {
-        onShowToast('Invalid phone number or password', 'error');
+      const staffUser = storedStaff.find((u) => u.phone === phone && u.password === password);
+      if (staffUser) {
+        onLogin({ ...staffUser, role: 'staff' });
+        setIsLoading(false);
+        return;
       }
+
+      const patientUser = storedUsers.find((u) => u.phone === phone && u.password === password);
+      if (patientUser) {
+        onLogin({ ...patientUser, role: 'patient' });
+      } else {
+        onShowToast(err.message || 'Invalid phone number or password', 'error');
+      }
+    } finally {
       setIsLoading(false);
-    }, 600);
+    }
   };
 
   return (
@@ -166,10 +171,18 @@ export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
           </button>
 
           {/* Demo Credentials Hint */}
-          <div className="p-4 rounded-xl bg-[#121212] border border-neutral-800 text-xs text-gray-400 w-full">
-            <p className="font-medium text-gray-300 mb-1">Demo Credentials:</p>
-            <p>Phone: <span className="font-mono text-primary">01700000000</span></p>
-            <p>Password: <span className="font-mono text-primary">Demo@1234</span></p>
+          <div className="p-4 rounded-xl bg-[#121212] border border-neutral-800 text-xs text-gray-400 w-full space-y-2">
+            <div>
+              <p className="font-medium text-gray-300 mb-1">Demo Patient:</p>
+              <p>Phone: <span className="font-mono text-primary">01700000000</span></p>
+              <p>Password: <span className="font-mono text-primary">Demo@1234</span></p>
+            </div>
+            <div className="border-t border-neutral-800 pt-2">
+              <p className="font-medium text-gray-300 mb-1">Demo Medical Staff:</p>
+              <p>Phone: <span className="font-mono text-primary">01800000000</span> (Dr. Nusrat)</p>
+              <p>Phone: <span className="font-mono text-primary">01900000000</span> (Dr. Tanvir)</p>
+              <p>Password: <span className="font-mono text-primary">Staff@1234</span></p>
+            </div>
           </div>
         </div>
       </main>
