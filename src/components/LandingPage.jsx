@@ -7,7 +7,7 @@ export default function LandingPage({ onNavigate }) {
       {/* Top Bar */}
       <header className="w-full max-w-7xl mx-auto px-6 py-4 flex items-center justify-between border-b border-neutral-800">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate('landing')}>
-          <img src="/sos-logo.png" alt="S.O.S. Logo" className="h-10 w-10 object-contain" />
+          <img src="/kidney-hospital-logo.png" alt="Hospital Logo" className="h-10 w-10 object-cover rounded-full border border-primary/30" />
           <h1 className="font-headline text-xl md:text-2xl font-bold text-white tracking-tight">
             S.O.S. Care
           </h1>
@@ -79,7 +79,7 @@ export default function LandingPage({ onNavigate }) {
       <footer className="border-t border-neutral-800 w-full">
         <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src="/sos-logo.png" alt="S.O.S. Care" className="h-6 w-6 object-contain opacity-60" />
+            <img src="/kidney-hospital-logo.png" alt="Hospital Care" className="h-6 w-6 object-cover rounded-full opacity-80" />
             <span className="text-sm text-gray-500">© 2026 S.O.S. Care</span>
           </div>
           <div className="flex gap-6 text-sm text-gray-500">

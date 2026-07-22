@@ -436,9 +436,11 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
       >
         {/* Clinician Profile */}
         <div className={`p-5 border-b ${isDark ? 'border-neutral-800' : 'border-neutral-300'} flex items-center gap-3`}>
-          <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-headline font-bold text-base shrink-0 border border-primary/30">
-            🏥
-          </div>
+          <img
+            src="/kidney-hospital-logo.png"
+            alt="Kidney Hospital Logo"
+            className="w-10 h-10 rounded-full object-cover shrink-0 border border-primary/30 shadow-sm"
+          />
           <div className="min-w-0">
             <h3 className={`font-headline font-semibold text-sm truncate ${isDark ? 'text-white' : 'text-[#1f1f1f]'}`}>
               {user.name}

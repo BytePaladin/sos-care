@@ -400,9 +400,9 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
               <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
                 {/* Logo */}
                 <img
-                  src="/sos-logo.png"
-                  alt="S.O.S. Logo"
-                  className="w-16 h-16 mb-5 rounded-2xl shadow-lg"
+                  src="/kidney-hospital-logo.png"
+                  alt="Kidney Hospital Logo"
+                  className="w-16 h-16 mb-5 rounded-2xl shadow-lg object-cover"
                 />
 
                 <h2 className={`font-headline text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-[#1f1f1f]'}`}>
@@ -456,9 +456,9 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
                   {/* S.O.S. avatar */}
                   <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                     <img
-                      src="/sos-logo.png"
-                      alt="S.O.S."
-                      className="w-5 h-5 rounded-full"
+                      src="/kidney-hospital-logo.png"
+                      alt="Kidney Hospital"
+                      className="w-5 h-5 rounded-full object-cover"
                     />
                   </div>
 
