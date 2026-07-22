@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import LandingPage from './components/LandingPage';
 import LoginPage from './components/LoginPage';
@@ -8,12 +9,112 @@ import StaffDashboard from './components/StaffDashboard';
 import SettingsModal from './components/SettingsModal';
 import Toast from './components/Toast';
 
-function AppContent() {
-  const [currentPage, setCurrentPage] = useState('landing');
+function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, setSettingsOpen }) {
+  const navigate = useNavigate();
+
+  const handleNavigate = useCallback((page) => {
+    switch (page) {
+      case 'landing':
+        navigate('/');
+        break;
+      case 'login':
+        navigate('/login');
+        break;
+      case 'signup':
+        navigate('/signup');
+        break;
+      case 'dashboard':
+        if (loggedInUser?.role === 'staff') {
+          navigate('/staff');
+        } else {
+          navigate('/dashboard');
+        }
+        break;
+      case 'staff':
+        navigate('/staff');
+        break;
+      default:
+        navigate('/');
+    }
+  }, [navigate, loggedInUser]);
+
+  const handleLogin = useCallback((user) => {
+    setLoggedInUser(user);
+    if (user.role === 'staff') {
+      navigate('/staff');
+    } else {
+      navigate('/dashboard');
+    }
+    showToast(`Welcome back, ${user.name}!`, 'success');
+  }, [navigate, setLoggedInUser, showToast]);
+
+  const handleLogout = useCallback(() => {
+    setLoggedInUser(null);
+    localStorage.removeItem('sos_token');
+    navigate('/login');
+    showToast('You have been logged out', 'info');
+  }, [navigate, setLoggedInUser, showToast]);
+
+  return (
+    <>
+      <Routes>
+        <Route path="/" element={<LandingPage onNavigate={handleNavigate} />} />
+        <Route
+          path="/login"
+          element={
+            <LoginPage
+              onNavigate={handleNavigate}
+              onLogin={handleLogin}
+              onShowToast={showToast}
+            />
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <SignUpPage
+              onNavigate={handleNavigate}
+              onShowToast={showToast}
+            />
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <Dashboard
+              userName={loggedInUser?.name || 'Patient'}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onLogout={handleLogout}
+            />
+          }
+        />
+        <Route
+          path="/staff"
+          element={
+            <StaffDashboard
+              user={loggedInUser || { id: 'doc-1', name: 'Dr. Nusrat Jahan', role: 'staff' }}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onLogout={handleLogout}
+            />
+          }
+        />
+        {/* Fallback for unmapped URLs */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onShowToast={showToast}
+      />
+    </>
+  );
+}
+
+export default function App() {
   const [loggedInUser, setLoggedInUser] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-
-  // Toast state
   const [toast, setToast] = useState({ message: '', type: 'info', visible: false });
 
   const showToast = useCallback((message, type = 'info') => {
@@ -24,91 +125,24 @@ function AppContent() {
     setToast((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  const handleNavigate = useCallback((page) => {
-    setCurrentPage(page);
-  }, []);
-
-  const handleLogin = useCallback((user) => {
-    setLoggedInUser(user);
-    setCurrentPage('dashboard');
-    showToast(`Welcome back, ${user.name}!`, 'success');
-  }, [showToast]);
-
-  const handleLogout = useCallback(() => {
-    setLoggedInUser(null);
-    setCurrentPage('landing');
-    showToast('You have been logged out', 'info');
-  }, [showToast]);
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'landing':
-        return <LandingPage onNavigate={handleNavigate} />;
-      case 'login':
-        return (
-          <LoginPage
-            onNavigate={handleNavigate}
-            onLogin={handleLogin}
-            onShowToast={showToast}
-          />
-        );
-      case 'signup':
-        return (
-          <SignUpPage
-            onNavigate={handleNavigate}
-            onShowToast={showToast}
-          />
-        );
-      case 'dashboard':
-        if (loggedInUser?.role === 'staff') {
-          return (
-            <StaffDashboard
-              user={loggedInUser}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onLogout={handleLogout}
-            />
-          );
-        }
-        return (
-          <Dashboard
-            userName={loggedInUser?.name || 'Patient'}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onLogout={handleLogout}
-          />
-        );
-      default:
-        return <LandingPage onNavigate={handleNavigate} />;
-    }
-  };
-
-  return (
-    <>
-      <div className="transition-all duration-300">
-        {renderPage()}
-      </div>
-
-      {/* Settings Modal — accessible from Dashboard */}
-      <SettingsModal
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onShowToast={showToast}
-      />
-
-      {/* Global Toast */}
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        visible={toast.visible}
-        onClose={hideToast}
-      />
-    </>
-  );
-}
-
-export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <BrowserRouter>
+        <AppRoutes
+          loggedInUser={loggedInUser}
+          setLoggedInUser={setLoggedInUser}
+          showToast={showToast}
+          settingsOpen={settingsOpen}
+          setSettingsOpen={setSettingsOpen}
+        />
+        {/* Global Toast */}
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          visible={toast.visible}
+          onClose={hideToast}
+        />
+      </BrowserRouter>
     </ThemeProvider>
   );
 }
