@@ -4,10 +4,14 @@
   "description": "Backend API server for S.O.S. Care using Express & MongoDB",
   "main": "index.js",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "selftest": "node scripts/triage-selftest.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
