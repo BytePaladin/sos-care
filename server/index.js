@@ -4,11 +4,10 @@
  * সমৃদ্ধ health check এবং শুরুতেই environment যাচাই যোগ করা হয়েছে.
  */
 
+import './config/env.js'; // ⚠️ সবার আগে — অন্য module module-load সময় process.env পড়ে
+
 import express from 'express'; // web framework
 import cors from 'cors'; // frontend থেকে call করার অনুমতি
-import dotenv from 'dotenv'; // .env পড়ার জন্য
-import path from 'path'; // path তৈরি করতে
-import { fileURLToPath } from 'url'; // ESM-এ __dirname বের করতে
 import { connectDB } from './config/db.js'; // MongoDB সংযোগ
 
 import authRoutes from './routes/authRoutes.js'; // /api/auth
@@ -18,13 +17,6 @@ import { notFound, errorHandler } from './middleware/errorHandler.js'; // error 
 import { pingMlService } from './services/mlClient.js'; // ML service জীবিত কিনা
 import { getSafetyNetRuleTags } from './services/safetyNet.js'; // কতগুলো rule আছে
 
-const __filename = fileURLToPath(import.meta.url); // বর্তমান ফাইলের path
-const __dirname = path.dirname(__filename); // বর্তমান ফোল্ডার
-
-// পরিবেশ ভেরিয়েবল লোড — আগে root-এর .env.local, তারপর server-এর .env
-dotenv.config({ path: path.join(__dirname, '../.env.local') }); // root override file
-dotenv.config(); // server/.env
-
 const app = express(); // express app
 const PORT = process.env.PORT || 5000; // কোন port-এ চলবে
 
@@ -33,10 +25,17 @@ if (!process.env.JWT_SECRET) {
   console.warn('[Warn] JWT_SECRET is not set — falling back to the default dev secret.'); // production-এ অবশ্যই সেট করতে হবে
 }
 if (!process.env.MONGODB_URI) {
-  console.warn('[Warn] MONGODB_URI is not set — falling back to local mongodb://127.0.0.1:27017/sos-care');
+  console.log('[Info] MONGODB_URI is not set — an in-memory MongoDB will be started and seeded for local demo use.');
 }
 
-connectDB(); // MongoDB সংযোগ শুরু
+// MongoDB সংযোগ — MONGODB_URI না থাকলে in-memory Mongo চালু হয় এবং
+// সেটি প্রতিবার খালি থাকে, তাই demo data একবার seed করে নেওয়া হয়।
+const usingInMemoryMongo = !process.env.MONGODB_URI;
+await connectDB();
+if (usingInMemoryMongo) {
+  const { seedDatabase } = await import('./seed.js');
+  await seedDatabase();
+}
 
 // ── Middleware ──
 app.use(cors()); // সব origin-কে অনুমতি (demo-এর জন্য যথেষ্ট)

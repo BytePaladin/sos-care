@@ -41,16 +41,21 @@ def is_model_loaded() -> bool:
 def predict_label(text: str) -> dict:
     """Return the hybrid severity decision for one message.
 
-    {"mlLabel": ..., "ruleOverride": bool, "finalLabel": ...} -- exactly the
-    contract the backend consumes (spec.md 6.3.5).
+    {"mlLabel": ..., "confidence": float, "ruleOverride": bool, "finalLabel": ...}
+    -- exactly the contract the backend consumes (spec.md 6.3.5).
     """
     model = load_model()
     ml_label = str(model.predict([text])[0])
+    if hasattr(model, "predict_proba"):
+        confidence = float(model.predict_proba([text])[0].max())
+    else:
+        confidence = 1.0
     sn = safety_net.check(text)
     rule_override = sn["triggered"]
     final_label = "RED" if rule_override else ml_label
     return {
         "mlLabel": ml_label,
+        "confidence": confidence,
         "ruleOverride": rule_override,
         "finalLabel": final_label,
     }

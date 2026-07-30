@@ -175,13 +175,13 @@ export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
             <div>
               <p className="font-medium text-gray-300 mb-1">Demo Patient:</p>
               <p>Phone: <span className="font-mono text-primary">01700000000</span></p>
-              <p>Password: <span className="font-mono text-primary">Demo@1234</span></p>
+              <p>Password: <span className="font-mono text-primary">password123</span></p>
             </div>
             <div className="border-t border-neutral-800 pt-2">
               <p className="font-medium text-gray-300 mb-1">Demo Medical Staff:</p>
               <p>Phone: <span className="font-mono text-primary">01800000000</span> (Dr. Nusrat)</p>
               <p>Phone: <span className="font-mono text-primary">01900000000</span> (Dr. Tanvir)</p>
-              <p>Password: <span className="font-mono text-primary">Staff@1234</span></p>
+              <p>Password: <span className="font-mono text-primary">password123</span></p>
             </div>
           </div>
         </div>

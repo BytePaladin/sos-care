@@ -1,15 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
-import { cannedResponses, mockRecentChats } from '../data/mockData';
+import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
+
+const SEVERITY_BADGE = {
+  red: 'bg-red-500/15 text-red-400',
+  yellow: 'bg-amber-500/15 text-amber-500',
+  green: 'bg-emerald-500/15 text-emerald-500',
+};
 
 export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   const { isDark } = useTheme();
-  
+
   const storageKey = `sos_chats_${userName?.replace(/\s+/g, '_')}`;
   const [chats, setChats] = useState(() => JSON.parse(localStorage.getItem(storageKey) || '[]'));
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [activeChatId, setActiveChatId] = useState(null);
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(chats));
@@ -19,6 +26,9 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+  // setIsSending() পরের render-এ কাজ করে, তাই একই tick-এ দুইবার submit হলে
+  // state guard আটকাতে পারে না — ref সাথে সাথেই কাজ করে।
+  const sendingRef = useRef(false);
 
   /* ── Auto-scroll on new messages ── */
   useEffect(() => {
@@ -36,116 +46,83 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   }, [inputText]);
 
   /* ── Helpers ── */
-  const sendMessage = (text) => {
+  const upsertChat = (chatId, updater, initial) => {
+    setChats((prevChats) => {
+      const exists = prevChats.some((c) => c.id === chatId);
+      if (!exists) return [initial, ...prevChats];
+      return prevChats.map((c) => (c.id === chatId ? updater(c) : c));
+    });
+  };
+
+  /**
+   * Sends the message to the real backend, which runs the hybrid triage
+   * (Flask ML classifier + deterministic safety net) and returns the bot reply
+   * plus the severity label it assigned.
+   */
+  const sendMessage = async (text) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed || sendingRef.current) return;
+    sendingRef.current = true;
 
     const userMsg = { role: 'user', text: trimmed };
-    
+
     let currentChatId = activeChatId;
     if (currentChatId === null) {
       currentChatId = Date.now();
       setActiveChatId(currentChatId);
     }
 
-    setChats((prevChats) => {
-      const idx = prevChats.findIndex((c) => c.id === currentChatId);
-      if (idx === -1) {
-        const newChat = {
-          id: currentChatId,
-          title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
-          preview: trimmed,
-          time: 'Just now',
-          messages: [userMsg],
-        };
-        return [newChat, ...prevChats];
-      } else {
-        return prevChats.map((c) => {
-          if (c.id === currentChatId) {
-            return {
-              ...c,
-              preview: trimmed,
-              time: 'Just now',
-              messages: [...c.messages, userMsg],
-            };
-          }
-          return c;
-        });
-      }
-    });
+    upsertChat(
+      currentChatId,
+      (c) => ({ ...c, preview: trimmed, time: 'Just now', messages: [...c.messages, userMsg] }),
+      {
+        id: currentChatId,
+        title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
+        preview: trimmed,
+        time: 'Just now',
+        messages: [userMsg],
+        sessionId: null,
+      },
+    );
 
     setMessages((prev) => [...prev, userMsg]);
     setInputText('');
+    setIsSending(true);
 
-    setTimeout(() => {
-      const categories = ['red', 'yellow', 'green'];
-      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-
-      let reply = '';
-      if (randomCategory === 'red') {
-        reply = '🚨 URGENT RED ALERT: Your symptoms indicate a high-risk medical condition. A medical professional has been notified. Please visit the Emergency Room immediately or call our Hospital Emergency Line at 📞 +880 1700-000000 / (02) 987654.';
-      } else if (randomCategory === 'yellow') {
-        reply = '⚠️ YELLOW CATEGORY (Moderate Risk): Your symptoms have been logged for practitioner review. If your condition deteriorates, please call our Hospital Help Desk at 📞 +880 1800-000000.';
-      } else {
-        reply = '✅ GREEN CATEGORY (Routine / Low Risk): Your screening is logged. For general hospital inquiries or appointments, call 📞 +880 1900-000000.';
+    try {
+      // একটি chat-এর জন্য প্রথম message-এ backend session তৈরি হয়, পরে সেটিই ব্যবহার হয়
+      let sessionId = chats.find((c) => c.id === currentChatId)?.sessionId || null;
+      if (!sessionId) {
+        const created = await api.createChatSession();
+        sessionId = created.sessionId;
+        upsertChat(currentChatId, (c) => ({ ...c, sessionId }), null);
       }
 
-      const botMsg = { role: 'bot', text: reply };
+      const serverMessages = await api.sendChatMessage(sessionId, trimmed);
+      const lastBot = [...serverMessages].reverse().find((m) => m.sender === 'bot');
 
-      setChats((prevChats) => {
-        return prevChats.map((c) => {
-          if (c.id === currentChatId) {
-            return {
-              ...c,
-              preview: reply,
-              messages: [...c.messages, botMsg],
-            };
-          }
-          return c;
-        });
-      });
+      const botMsg = {
+        role: 'bot',
+        text: lastBot?.text || 'Your message was logged, but no reply was returned.',
+        severity: lastBot?.metadata?.finalLabel || null,
+        ruleOverride: lastBot?.metadata?.ruleOverride || false,
+      };
 
+      upsertChat(currentChatId, (c) => ({ ...c, preview: botMsg.text, messages: [...c.messages, botMsg] }), null);
       setMessages((prev) => [...prev, botMsg]);
-
-      // Save patient triage record for medical staff desk
-      try {
-        const storedPatients = JSON.parse(localStorage.getItem('sos_patients') || '[]');
-        const pName = userName || 'Screened Patient';
-        const pPhone = '017' + Math.floor(10000000 + Math.random() * 90000000);
-
-        const newPatientTriage = {
-          id: 'pat-' + Date.now(),
-          name: pName,
-          patientName: pName,
-          phone: pPhone,
-          patientPhone: pPhone,
-          category: randomCategory,
-          screenedAt: new Date().toISOString(),
-          chatHistory: [userMsg, botMsg],
-          reviewStatus: 'pending',
-          reviewComment: '',
-          notes: [
-            {
-              author: 'System',
-              text: `Symptom Screener categorized patient as [${randomCategory.toUpperCase()}] based on chat input: "${trimmed.substring(0, 80)}..."`,
-              timestamp: new Date().toISOString(),
-            },
-          ],
-          forwardedTo: null,
-          reviewedBy: null,
-          reviewedAt: null,
-        };
-
-        const filtered = storedPatients.filter((p) => p.name !== pName && p.patientName !== pName);
-        filtered.unshift(newPatientTriage);
-        localStorage.setItem('sos_patients', JSON.stringify(filtered));
-
-        // Dispatch custom storage event for instant multi-tab sync
-        window.dispatchEvent(new Event('storage'));
-      } catch (e) {
-        console.error('Failed to update local storage triage:', e);
-      }
-    }, 800);
+    } catch (err) {
+      // Screening ব্যর্থ হলে ভুয়া label দেখানো বিপজ্জনক — স্পষ্টভাবে জানানো হচ্ছে
+      const errMsg = {
+        role: 'bot',
+        text: `⚠️ Could not reach the screening service (${err.message}). Your message was not triaged. Please try again, or call the help desk at +880 1800-000000 if you need help now.`,
+        severity: null,
+      };
+      upsertChat(currentChatId, (c) => ({ ...c, messages: [...c.messages, errMsg] }), null);
+      setMessages((prev) => [...prev, errMsg]);
+    } finally {
+      sendingRef.current = false;
+      setIsSending(false);
+    }
   };
 
   const handleSend = () => sendMessage(inputText);
@@ -463,12 +440,38 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
                   </div>
 
                   <div className={`max-w-[80%] rounded-2xl rounded-bl-md px-4 py-3 shadow-sm ${isDark ? 'bg-surface-container-high text-on-surface' : 'bg-[#f0f4f9] text-[#1f1f1f]'}`}>
+                    {msg.severity && (
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span
+                          className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${SEVERITY_BADGE[msg.severity] || ''}`}
+                        >
+                          {msg.severity}
+                        </span>
+                        {msg.ruleOverride && (
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">
+                            safety-net override
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">
                       {msg.text}
                     </p>
                   </div>
                 </div>
               ),
+            )}
+
+            {/* ── Screening in progress ── */}
+            {isSending && (
+              <div className="flex justify-start gap-2.5 animate-slide-up">
+                <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
+                  <img src="/kidney-hospital-logo.png" alt="" className="w-5 h-5 rounded-full object-cover" />
+                </div>
+                <div className={`rounded-2xl rounded-bl-md px-4 py-3 shadow-sm ${isDark ? 'bg-surface-container-high text-on-surface' : 'bg-[#f0f4f9] text-[#1f1f1f]'}`}>
+                  <p className="text-sm opacity-70">Screening your message…</p>
+                </div>
+              </div>
             )}
 
             {/* Scroll anchor */}
@@ -511,13 +514,16 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
               {/* Send button */}
               {inputText.trim() && (
                 <button
+                  type="button"
                   onClick={handleSend}
+                  disabled={isSending}
                   className="
                     rounded-full bg-primary text-on-primary
                     p-2 ml-2 shrink-0
                     hover:brightness-110 active:scale-95
                     transition-all duration-200 cursor-pointer
                     shadow-sm animate-fade-in
+                    disabled:opacity-40 disabled:cursor-not-allowed
                   "
                   aria-label="Send message"
                 >

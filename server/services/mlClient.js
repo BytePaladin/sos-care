@@ -86,8 +86,11 @@ export const classifyMessage = async (text) => {
 
     const data = await response.json(); // Flask থেকে আসা JSON parse
 
+    // Flask predict.py আসল classifier label পাঠায় mlLabel key-এ (finalLabel নয়) —
+    // safety-net override এখানে Node-এর নিজের runSafetyNet() করবে, তাই raw model
+    // label-টাই এখানে দরকার, নাহলে দুইটা safety-net স্তর একে অপরের audit ঢেকে ফেলবে।
     return {
-      label: normalizeSeverity(data.label ?? data.severity), // label normalize করে নিরাপদ করা
+      label: normalizeSeverity(data.mlLabel), // label normalize করে নিরাপদ করা
       confidence: Number(data.confidence ?? 0), // confidence না থাকলে 0
       source: 'ml-service', // আসল model থেকে এসেছে
     };
