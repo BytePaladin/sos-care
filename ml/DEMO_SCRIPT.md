@@ -44,10 +44,56 @@ pattern so it's caught deterministically, and expanded the dataset (v1 → v2,
 [models/VALIDATION.md](models/VALIDATION.md) for the full before/after
 metrics and the reproduction steps."]
 
-## 4. Fail-safe (if you want to show backend integration too)
+## 4. Full-stack end-to-end demo (the main event)
 
-Stop the Flask service (`ml/app.py`) while the backend is running and submit a
-message — `mlClient.js` / `triageEngine.js` should degrade the submission to
-YELLOW rather than fail silently (spec.md NFR2). Confirm against
-`server/scripts/live-check.js` if you want a scripted version of this instead
-of doing it live.
+Start all three services per the root [README](../README.md), then open
+http://localhost:5173.
+
+**As the patient** (log in `01700000000` / `password123`):
+
+Send each message in its own chat (click **New Chat** between them) and point out
+the severity badge that appears on the reply:
+
+| Message | Badge shown |
+|---|---|
+| `Can I eat bananas on my current diet?` | GREEN |
+| `My legs and ankles have been swelling for two days` | YELLOW |
+| `My heart is racing and I feel like I might drop` | RED (model caught it alone — no safety-net badge) |
+| `I haven't passed any urine since yesterday` | RED **+ safety-net override** badge |
+
+[Say: "the badge comes from the backend, not the browser — the message went to
+Express, which called the Flask classifier and ran the safety net."]
+
+**As the staff** (log out, log in `01800000000` / `password123`):
+
+The Clinical Triage Desk shows those four cases with REDs sorted to the top.
+Open the anuria case and show the **CLINICAL LOGS & NOTES** panel:
+
+```
+System (Safety-Net)
+Force-escalated to RED. Rule hits: ANURIA. ML label was: red.
+```
+
+[Say: "this is the audit trail — it records what the model said and why the
+deterministic layer overrode it. That's the guarantee spec.md §11 requires."]
+
+## 5. Fail-safe — ML service down (spec.md NFR2)
+
+With the stack running, stop the Flask service (Ctrl+C in the `ml/app.py`
+terminal), then:
+
+```bash
+curl http://localhost:5000/api/health
+```
+
+It reports `mlService: "offline (fallback heuristic active)"`. Now send another
+message from the patient chat:
+
+- A symptom message still gets logged — degraded to **YELLOW**, never silently GREEN.
+- `I haven't passed any urine since yesterday` **still returns RED**, because the
+  safety net is deterministic and runs inside the backend, independent of the model.
+
+[Say: "killing the ML service degrades the system, it doesn't break it — and the
+safety guarantee survives even with the model completely offline."]
+
+Restart `python app.py` afterwards to return to normal.
