@@ -1,100 +1,99 @@
 {
-  "dataset": "dataset_v2.csv",
   "selected_model": "logreg",
   "labels": [
     "GREEN",
     "YELLOW",
     "RED"
   ],
-  "n_samples": 772,
+  "n_samples": 630,
   "class_counts": {
-    "GREEN": 252,
-    "YELLOW": 260,
-    "RED": 260
+    "GREEN": 210,
+    "YELLOW": 210,
+    "RED": 210
   },
   "cv_folds": 5,
   "results": {
     "logreg": {
-      "accuracy": 1.0,
-      "macro_f1": 1.0,
+      "accuracy": 0.9984126984126984,
+      "macro_f1": 0.998412689414339,
       "red_recall": 1.0,
       "per_class": {
         "GREEN": {
-          "precision": 1.0,
+          "precision": 0.995260663507109,
           "recall": 1.0,
-          "f1-score": 1.0,
-          "support": 252.0
+          "f1-score": 0.997624703087886,
+          "support": 210.0
         },
         "YELLOW": {
           "precision": 1.0,
-          "recall": 1.0,
-          "f1-score": 1.0,
-          "support": 260.0
+          "recall": 0.9952380952380953,
+          "f1-score": 0.9976133651551312,
+          "support": 210.0
         },
         "RED": {
           "precision": 1.0,
           "recall": 1.0,
           "f1-score": 1.0,
-          "support": 260.0
+          "support": 210.0
         }
       },
       "confusion_matrix": [
         [
-          252,
-          0,
-          0
-        ],
-        [
-          0,
-          260,
-          0
-        ],
-        [
-          0,
-          0,
-          260
-        ]
-      ]
-    },
-    "linsvm": {
-      "accuracy": 0.9987046632124352,
-      "macro_f1": 0.9986976732355316,
-      "red_recall": 1.0,
-      "per_class": {
-        "GREEN": {
-          "precision": 0.9960474308300395,
-          "recall": 1.0,
-          "f1-score": 0.998019801980198,
-          "support": 252.0
-        },
-        "YELLOW": {
-          "precision": 1.0,
-          "recall": 0.9961538461538462,
-          "f1-score": 0.9980732177263969,
-          "support": 260.0
-        },
-        "RED": {
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1-score": 1.0,
-          "support": 260.0
-        }
-      },
-      "confusion_matrix": [
-        [
-          252,
+          210,
           0,
           0
         ],
         [
           1,
-          259,
+          209,
           0
         ],
         [
           0,
           0,
-          260
+          210
+        ]
+      ]
+    },
+    "linsvm": {
+      "accuracy": 0.9984126984126984,
+      "macro_f1": 0.998412689414339,
+      "red_recall": 1.0,
+      "per_class": {
+        "GREEN": {
+          "precision": 0.995260663507109,
+          "recall": 1.0,
+          "f1-score": 0.997624703087886,
+          "support": 210.0
+        },
+        "YELLOW": {
+          "precision": 1.0,
+          "recall": 0.9952380952380953,
+          "f1-score": 0.9976133651551312,
+          "support": 210.0
+        },
+        "RED": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 210.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          210,
+          0,
+          0
+        ],
+        [
+          1,
+          209,
+          0
+        ],
+        [
+          0,
+          0,
+          210
         ]
       ]
     }

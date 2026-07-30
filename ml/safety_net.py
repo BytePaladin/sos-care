@@ -54,6 +54,12 @@ _CRITICAL_PATTERNS = [
     ("coughing_or_vomiting_blood", r"coughing up blood|vomiting blood|"
                                    r"throwing up blood|blood in my vomit"),
     ("seizure", r"\bseizure\b|convuls|having a fit"),
+    # --- Added (dataset v2 error analysis): thunderclap headache -- a classic
+    # red flag for subarachnoid hemorrhage / hypertensive emergency, which the
+    # v1 model alone misclassified as GREEN. ---
+    ("thunderclap_headache", r"worst headache (?:of|in) my life|"
+                             r"sudden(?:ly)? severe headache|thunderclap headache|"
+                             r"worst headache i'?ve ever had"),
 ]
 
 _COMPILED = [(name, re.compile(pat)) for name, pat in _CRITICAL_PATTERNS]

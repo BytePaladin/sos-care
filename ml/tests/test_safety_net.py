@@ -31,6 +31,8 @@ CRITICAL = [
     "I feel severely confused",
     "I've been vomiting blood",
     "I think I had a seizure",
+    "I have a sudden severe headache, the worst one of my life",
+    "This is the worst headache I've ever had",
 ]
 
 # Messages that MUST NOT trigger the safety net (routine or watch-level).
@@ -43,6 +45,9 @@ NON_CRITICAL = [
     "I have a mild fever since last night",
     "There's a metallic taste in my mouth",
     "How much salt is safe for me per day?",
+    "I have a mild headache today",
+    "I've had a dull headache and feel a bit off",
+    "I have some abdominal discomfort after eating",
 ]
 
 

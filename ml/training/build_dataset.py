@@ -18,6 +18,7 @@ the training data.
 Run from the `ml/` directory:  python training/build_dataset.py
 """
 
+import argparse
 import csv
 import os
 import random
@@ -29,8 +30,6 @@ sys.path.insert(0, _ML_ROOT)
 import safety_net  # noqa: E402
 
 SEED = 42
-TARGET_PER_CLASS = 210
-OUT_PATH = os.path.join(_ML_ROOT, "data", "dataset_v1.csv")
 
 # Patient-context prefixes reflecting the kidney-care population.
 CONTEXTS = [
@@ -78,6 +77,8 @@ RED_CORE = [
     "I've been vomiting blood {t}",
     "I think I had a seizure {t}",
     "I can't catch my breath and my chest feels tight",
+    "I have a sudden severe headache, the worst one of my life {t}",
+    "this is the worst headache I've ever had {t}",
 ]
 
 # --- RED (subtle): genuinely urgent but WITHOUT an exact safety-net phrase, so
@@ -92,6 +93,8 @@ RED_SUBTLE = [
     "I'm extremely drowsy and can barely stay awake {t}",
     "I have crushing pain spreading to my arm and jaw",
     "my urine has turned dark like cola and I feel terrible {t}",
+    "my abdominal pain is severe and I also have a high fever {t}",
+    "I have severe abdominal pain that won't go away {t}",
 ]
 
 # --- YELLOW: context-dependent kidney warning signs; must NOT contain a
@@ -133,6 +136,17 @@ YELLOW = [
     "I've had a dull headache and feel a bit off {t}",
     "I've been sleeping badly and feel restless {t}",
     "my ankles leave a dent when I press them {t}",
+    "I have a headache {t}",
+    "I have a mild headache {t}",
+    "I've had a headache on and off {t}",
+    "I have a bit of a headache today, nothing too bad",
+    "I have some abdominal pain {t}",
+    "I have mild abdominal discomfort {t}",
+    "my stomach has been hurting a little {t}",
+    "I have some abdominal cramping {t}",
+    "my urine has an unusual smell {t}",
+    "my urine smells different than usual {t}",
+    "I've noticed a strange odor in my urine {t}",
 ]
 
 # --- GREEN: routine dietary / administrative / general questions. ---
@@ -175,6 +189,10 @@ GREEN = [
     "how long does a routine checkup usually take?",
     "is there wheelchair access at the entrance?",
     "can I pay my bill online?",
+    "is it normal to get an occasional mild headache?",
+    "I get a mild headache sometimes, is that anything to worry about?",
+    "I have a mild stomach ache after eating spicy food, is that normal?",
+    "is a bit of an upset stomach after meals normal for my condition?",
 ]
 
 
@@ -207,7 +225,7 @@ def _gen_green(templates, openers):
     return out
 
 
-def build():
+def build(out_path, target_per_class):
     rng = random.Random(SEED)
 
     red = _gen_symptom(RED_CORE + RED_SUBTLE, CONTEXTS, TIMES)
@@ -230,7 +248,7 @@ def build():
     for label, pool in (("RED", red), ("YELLOW", yellow), ("GREEN", green)):
         items = sorted(pool)
         rng.shuffle(items)
-        chosen = items[:TARGET_PER_CLASS]
+        chosen = items[:target_per_class]
         rows.extend((m, label) for m in chosen)
         print(f"{label:6}: pool={len(pool):4d}  used={len(chosen)}")
 
@@ -238,14 +256,19 @@ def build():
           f"{red_no_trigger}/{len(red)}")
 
     rng.shuffle(rows)
-    os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
-    with open(OUT_PATH, "w", newline="", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["text", "label"])
         w.writerows(rows)
 
-    print(f"\nWrote {len(rows)} rows to {OUT_PATH}")
+    print(f"\nWrote {len(rows)} rows to {out_path}")
 
 
 if __name__ == "__main__":
-    build()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", default="1", help="dataset version suffix, e.g. 1 or 2")
+    parser.add_argument("--target-per-class", type=int, default=210)
+    args = parser.parse_args()
+    out_path = os.path.join(_ML_ROOT, "data", f"dataset_v{args.version}.csv")
+    build(out_path, args.target_per_class)

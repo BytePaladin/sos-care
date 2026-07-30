@@ -15,6 +15,7 @@ exact same preprocessing travels inside the saved model at serving time.
 Run from the `ml/` directory:  python training/train.py
 """
 
+import argparse
 import json
 import os
 import sys
@@ -33,9 +34,7 @@ _ML_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ML_ROOT)
 from preprocess import clean_text  # noqa: E402
 
-DATA_PATH = os.path.join(_ML_ROOT, "data", "dataset_v1.csv")
 MODEL_PATH = os.path.join(_ML_ROOT, "models", "severity_model.joblib")
-METRICS_PATH = os.path.join(_ML_ROOT, "models", "metrics.json")
 LABELS = ["GREEN", "YELLOW", "RED"]
 SEED = 42
 
@@ -90,10 +89,22 @@ def evaluate(name, pipe, X, y, cv):
 
 
 def main():
-    if not os.path.exists(DATA_PATH):
-        raise SystemExit(f"Dataset not found: {DATA_PATH}. Run build_dataset.py first.")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", default="dataset_v1.csv",
+                         help="CSV filename under ml/data/ to train on")
+    args = parser.parse_args()
 
-    df = pd.read_csv(DATA_PATH)
+    data_path = os.path.join(_ML_ROOT, "data", args.data)
+    # metrics.json always reflects the currently-deployed model (at MODEL_PATH);
+    # a version-stamped copy is kept alongside it for before/after comparison.
+    version_suffix = os.path.splitext(args.data)[0].replace("dataset_", "")
+    versioned_metrics_path = os.path.join(_ML_ROOT, "models", f"metrics_{version_suffix}.json")
+    metrics_path = os.path.join(_ML_ROOT, "models", "metrics.json")
+
+    if not os.path.exists(data_path):
+        raise SystemExit(f"Dataset not found: {data_path}. Run training/build_dataset.py first.")
+
+    df = pd.read_csv(data_path)
     X = df["text"].astype(str).tolist()
     y = df["label"].astype(str).tolist()
     print(f"Loaded {len(X)} messages. Class counts: "
@@ -115,18 +126,22 @@ def main():
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     joblib.dump(final, MODEL_PATH)
 
-    with open(METRICS_PATH, "w", encoding="utf-8") as f:
-        json.dump({
-            "selected_model": best,
-            "labels": LABELS,
-            "n_samples": len(X),
-            "class_counts": {lbl: y.count(lbl) for lbl in LABELS},
-            "cv_folds": 5,
-            "results": results,
-        }, f, indent=2)
+    metrics_payload = {
+        "dataset": args.data,
+        "selected_model": best,
+        "labels": LABELS,
+        "n_samples": len(X),
+        "class_counts": {lbl: y.count(lbl) for lbl in LABELS},
+        "cv_folds": 5,
+        "results": results,
+    }
+    for path in (metrics_path, versioned_metrics_path):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(metrics_payload, f, indent=2)
 
     print(f"\nSaved model  -> {MODEL_PATH}")
-    print(f"Saved metrics -> {METRICS_PATH}")
+    print(f"Saved metrics -> {metrics_path}")
+    print(f"Saved metrics -> {versioned_metrics_path}")
 
 
 if __name__ == "__main__":
