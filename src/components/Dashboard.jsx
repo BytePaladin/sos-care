@@ -29,57 +29,122 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
-    ta.style.height = 'auto';
+    ta.style.height = '28px';
     const maxH = 5 * 24; // ~5 rows
-    ta.style.height = `${Math.min(ta.scrollHeight, maxH)}px`;
+    const calculatedH = Math.max(28, Math.min(ta.scrollHeight, maxH));
+    ta.style.height = `${calculatedH}px`;
   }, [inputText]);
 
   /* ── Helpers ── */
   const sendMessage = (text) => {
-    if (!text.trim()) return;
-    const userMsg = { role: 'user', text: text.trim() };
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const userMsg = { role: 'user', text: trimmed };
     
     let currentChatId = activeChatId;
-    let newChats = [...chats];
-    let chatIndex = newChats.findIndex(c => c.id === currentChatId);
-
-    if (currentChatId === null || chatIndex === -1) {
+    if (currentChatId === null) {
       currentChatId = Date.now();
-      const newChat = {
-        id: currentChatId,
-        title: text.trim().substring(0, 30) + (text.length > 30 ? '...' : ''),
-        preview: text.trim(),
-        time: 'Just now',
-        messages: [userMsg]
-      };
-      newChats.unshift(newChat);
       setActiveChatId(currentChatId);
-      chatIndex = 0;
-    } else {
-      newChats[chatIndex].messages.push(userMsg);
-      newChats[chatIndex].preview = text.trim();
-      newChats[chatIndex].time = 'Just now';
     }
 
-    setMessages([...newChats[chatIndex].messages]);
-    setChats(newChats);
+    setChats((prevChats) => {
+      const idx = prevChats.findIndex((c) => c.id === currentChatId);
+      if (idx === -1) {
+        const newChat = {
+          id: currentChatId,
+          title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
+          preview: trimmed,
+          time: 'Just now',
+          messages: [userMsg],
+        };
+        return [newChat, ...prevChats];
+      } else {
+        return prevChats.map((c) => {
+          if (c.id === currentChatId) {
+            return {
+              ...c,
+              preview: trimmed,
+              time: 'Just now',
+              messages: [...c.messages, userMsg],
+            };
+          }
+          return c;
+        });
+      }
+    });
+
+    setMessages((prev) => [...prev, userMsg]);
     setInputText('');
 
     setTimeout(() => {
-      const reply = cannedResponses[Math.floor(Math.random() * cannedResponses.length)];
+      const categories = ['red', 'yellow', 'green'];
+      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+
+      let reply = '';
+      if (randomCategory === 'red') {
+        reply = '🚨 URGENT RED ALERT: Your symptoms indicate a high-risk medical condition. A medical professional has been notified. Please visit the Emergency Room immediately or call our Hospital Emergency Line at 📞 +880 1700-000000 / (02) 987654.';
+      } else if (randomCategory === 'yellow') {
+        reply = '⚠️ YELLOW CATEGORY (Moderate Risk): Your symptoms have been logged for practitioner review. If your condition deteriorates, please call our Hospital Help Desk at 📞 +880 1800-000000.';
+      } else {
+        reply = '✅ GREEN CATEGORY (Routine / Low Risk): Your screening is logged. For general hospital inquiries or appointments, call 📞 +880 1900-000000.';
+      }
+
       const botMsg = { role: 'bot', text: reply };
-      
-      setChats(prevChats => {
-        const updated = [...prevChats];
-        const idx = updated.findIndex(c => c.id === currentChatId);
-        if (idx !== -1) {
-          updated[idx].messages.push(botMsg);
-          updated[idx].preview = reply;
-        }
-        return updated;
+
+      setChats((prevChats) => {
+        return prevChats.map((c) => {
+          if (c.id === currentChatId) {
+            return {
+              ...c,
+              preview: reply,
+              messages: [...c.messages, botMsg],
+            };
+          }
+          return c;
+        });
       });
-      
-      setMessages(prev => [...prev, botMsg]);
+
+      setMessages((prev) => [...prev, botMsg]);
+
+      // Save patient triage record for medical staff desk
+      try {
+        const storedPatients = JSON.parse(localStorage.getItem('sos_patients') || '[]');
+        const pName = userName || 'Screened Patient';
+        const pPhone = '017' + Math.floor(10000000 + Math.random() * 90000000);
+
+        const newPatientTriage = {
+          id: 'pat-' + Date.now(),
+          name: pName,
+          patientName: pName,
+          phone: pPhone,
+          patientPhone: pPhone,
+          category: randomCategory,
+          screenedAt: new Date().toISOString(),
+          chatHistory: [userMsg, botMsg],
+          reviewStatus: 'pending',
+          reviewComment: '',
+          notes: [
+            {
+              author: 'System',
+              text: `Symptom Screener categorized patient as [${randomCategory.toUpperCase()}] based on chat input: "${trimmed.substring(0, 80)}..."`,
+              timestamp: new Date().toISOString(),
+            },
+          ],
+          forwardedTo: null,
+          reviewedBy: null,
+          reviewedAt: null,
+        };
+
+        const filtered = storedPatients.filter((p) => p.name !== pName && p.patientName !== pName);
+        filtered.unshift(newPatientTriage);
+        localStorage.setItem('sos_patients', JSON.stringify(filtered));
+
+        // Dispatch custom storage event for instant multi-tab sync
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        console.error('Failed to update local storage triage:', e);
+      }
     }, 800);
   };
 
@@ -335,9 +400,9 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
               <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
                 {/* Logo */}
                 <img
-                  src="/sos-logo.png"
-                  alt="S.O.S. Logo"
-                  className="w-16 h-16 mb-5 rounded-2xl shadow-lg"
+                  src="/kidney-hospital-logo.png"
+                  alt="Kidney Hospital Logo"
+                  className="w-16 h-16 mb-5 rounded-2xl shadow-lg object-cover"
                 />
 
                 <h2 className={`font-headline text-2xl font-bold mb-1 ${isDark ? 'text-white' : 'text-[#1f1f1f]'}`}>
@@ -391,9 +456,9 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
                   {/* S.O.S. avatar */}
                   <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                     <img
-                      src="/sos-logo.png"
-                      alt="S.O.S."
-                      className="w-5 h-5 rounded-full"
+                      src="/kidney-hospital-logo.png"
+                      alt="Kidney Hospital"
+                      className="w-5 h-5 rounded-full object-cover"
                     />
                   </div>
 
@@ -412,14 +477,24 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
         </div>
 
         {/* ── Bottom input bar ── */}
-        <div className={`border-t transition-colors duration-300 ${isDark ? 'border-neutral-800 bg-[#161616]' : 'border-neutral-300 bg-[#ffffff]'}`}>
+        <div
+          onClick={() => textareaRef.current?.focus()}
+          className={`border-t transition-colors duration-300 cursor-text ${isDark ? 'border-neutral-800 bg-[#161616]' : 'border-neutral-300 bg-[#ffffff]'}`}
+        >
           <div className="max-w-3xl mx-auto p-4 flex flex-col gap-2">
-            <div className={`
-              w-full max-w-3xl mx-auto rounded-full px-6 py-3 flex items-center justify-between transition-shadow duration-200 
-              ${isDark 
-                ? 'bg-[#202124] border border-neutral-700 focus-within:ring-1 focus-within:ring-primary' 
-                : 'bg-[#f0f4f9] border border-transparent focus-within:ring-2 focus-within:ring-teal-500'}
-            `}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+              onClick={() => textareaRef.current?.focus()}
+              className={`
+                w-full max-w-3xl mx-auto rounded-3xl px-5 py-2.5 flex items-center justify-between transition-all duration-200 cursor-text
+                ${isDark 
+                  ? 'bg-[#202124] border border-neutral-700 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary' 
+                  : 'bg-[#f0f4f9] border border-neutral-300 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20'}
+              `}
+            >
               <textarea
                 ref={textareaRef}
                 value={inputText}
@@ -428,7 +503,7 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
                 rows={1}
                 placeholder="Type your symptoms or questions…"
                 className={`
-                  bg-transparent focus:outline-none w-full resize-none leading-6 max-h-[120px] pt-1
+                  bg-transparent focus:outline-none w-full resize-none leading-6 min-h-[28px] max-h-[120px] py-0.5 cursor-text caret-primary dark:caret-white block
                   ${isDark ? 'text-white placeholder-neutral-400' : 'text-[#1f1f1f] placeholder-neutral-500'}
                 `}
               />
@@ -456,7 +531,7 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
                   </svg>
                 </button>
               )}
-            </div>
+            </form>
 
             <p className={`text-[11px] text-center mt-2.5 select-none ${isDark ? 'text-outline' : 'text-[#747775]'}`}>
               S.O.S. may provide general info only — always consult your doctor.
