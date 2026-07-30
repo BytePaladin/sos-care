@@ -8,16 +8,19 @@ It classifies a patient's free-text symptom message as **GREEN** (routine), **YE
 
 ```
 ml/
-├── data/dataset_v1.csv       # self-constructed labeled corpus (text,label)
+├── data/dataset_v1.csv, dataset_v2.csv   # self-constructed labeled corpora (text,label)
 ├── training/
-│   ├── build_dataset.py      # regenerates dataset_v1.csv from clinical templates
-│   └── train.py              # compares LogReg vs Linear SVM, saves the winner
-├── models/                   # severity_model.joblib (gitignored) + metrics.json
-├── preprocess.py             # shared text cleaning (baked into the model)
-├── safety_net.py             # rule-based critical-phrase override
-├── predict.py                # hybrid decision: model + safety net -> finalLabel
-├── app.py                    # Flask service: /health, /predict
-├── tests/test_safety_net.py  # pins the safety net's behavior
+│   ├── build_dataset.py   # regenerates a dataset version from clinical templates
+│   └── train.py           # compares LogReg vs Linear SVM, saves the winner
+├── models/                # severity_model.joblib (gitignored) + metrics.json
+│                          # + metrics_v1.json / metrics_v2.json (per-version archive)
+│                          # + VALIDATION.md (v1 vs v2 error analysis and comparison)
+├── preprocess.py          # shared text cleaning (baked into the model)
+├── safety_net.py          # rule-based critical-phrase override
+├── predict.py             # hybrid decision: model + safety net -> finalLabel
+├── app.py                 # Flask service: /health, /predict
+├── tests/test_safety_net.py   # pins the safety net's behavior
+├── DEMO_SCRIPT.md         # scripted messages for the progress demo/recording
 └── requirements.txt
 ```
 
@@ -38,11 +41,11 @@ python -m venv .venv
 Run everything from the `ml/` directory:
 
 ```bash
-# 1. (Re)build the dataset — reproducible, seeded
-python training/build_dataset.py
+# 1. (Re)build the dataset — reproducible, seeded (add --version/--target-per-class for a new version)
+python training/build_dataset.py --version 2 --target-per-class 260
 
 # 2. Train + evaluate; selects the model by RED recall, then macro-F1
-python training/train.py
+python training/train.py --data dataset_v2.csv
 
 # 3. Run the tests
 python -m pytest -q
@@ -50,6 +53,11 @@ python -m pytest -q
 # 4. Start the service (default port 5001)
 python app.py
 ```
+
+See [models/VALIDATION.md](models/VALIDATION.md) for the v1 → v2 error analysis,
+the metrics comparison, and reproduction steps. See
+[DEMO_SCRIPT.md](DEMO_SCRIPT.md) for a scripted walkthrough (tiers + safety-net
+override + this week's fix) suitable for a progress recording.
 
 ### API
 
