@@ -1,56 +1,56 @@
 /**
  * index.js — S.O.S. Care API server entry point
  * Week 3 update: request logger, 404 handler, centralised error handler,
- * সমৃদ্ধ health check এবং শুরুতেই environment যাচাই যোগ করা হয়েছে.
+ * added health check and initial environment validation.
  */
 
 import express from 'express'; // web framework
-import cors from 'cors'; // frontend থেকে call করার অনুমতি
-import dotenv from 'dotenv'; // .env পড়ার জন্য
-import path from 'path'; // path তৈরি করতে
-import { fileURLToPath } from 'url'; // ESM-এ __dirname বের করতে
-import { connectDB } from './config/db.js'; // MongoDB সংযোগ
+import cors from 'cors'; // allow frontend calls
+import dotenv from 'dotenv'; // for reading .env
+import path from 'path'; // for creating paths
+import { fileURLToPath } from 'url'; // to get __dirname in ESM
+import { connectDB } from './config/db.js'; // MongoDB connection
 
 import authRoutes from './routes/authRoutes.js'; // /api/auth
 import triageRoutes from './routes/triageRoutes.js'; // /api/triage
 import chatRoutes from './routes/chatRoutes.js'; // /api/chats
 import adminRoutes from './routes/adminRoutes.js'; // /api/admin
 import { notFound, errorHandler } from './middleware/errorHandler.js'; // error middleware
-import { pingMlService } from './services/mlClient.js'; // ML service জীবিত কিনা
-import { getSafetyNetRuleTags } from './services/safetyNet.js'; // কতগুলো rule আছে
+import { pingMlService } from './services/mlClient.js'; // check if ML service is alive
+import { getSafetyNetRuleTags } from './services/safetyNet.js'; // how many rules exist
 
-const __filename = fileURLToPath(import.meta.url); // বর্তমান ফাইলের path
-const __dirname = path.dirname(__filename); // বর্তমান ফোল্ডার
+const __filename = fileURLToPath(import.meta.url); // current file path
+const __dirname = path.dirname(__filename); // current directory
 
-// পরিবেশ ভেরিয়েবল লোড — আগে root-এর .env.local, তারপর server-এর .env
+// Load environment variables — first root .env.local, then server .env
 dotenv.config({ path: path.join(__dirname, '../.env.local') }); // root override file
 dotenv.config(); // server/.env
 
 const app = express(); // express app
-const PORT = process.env.PORT || 5000; // কোন port-এ চলবে
+const PORT = process.env.PORT || 5000; // port to run on
 
-// ── শুরুতেই জরুরি env variable যাচাই — ভুল থাকলে এখনই সতর্ক করা ভালো ──
+// ── Validate essential env variables on startup — better to warn early ──
 if (!process.env.JWT_SECRET) {
-  console.warn('[Warn] JWT_SECRET is not set — falling back to the default dev secret.'); // production-এ অবশ্যই সেট করতে হবে
+  console.warn('[Warn] JWT_SECRET is not set — falling back to the default dev secret.'); // must set in production
 }
 if (!process.env.MONGODB_URI) {
   console.warn('[Warn] MONGODB_URI is not set — falling back to local mongodb://127.0.0.1:27017/sos-care');
 }
 
-connectDB(); // MongoDB সংযোগ শুরু
+connectDB(); // start MongoDB connection
 
 // ── Middleware ──
-app.use(cors()); // সব origin-কে অনুমতি (demo-এর জন্য যথেষ্ট)
-app.use(express.json({ limit: '1mb' })); // JSON body parse, বড় payload আটকানো
+app.use(cors()); // allow all origins (sufficient for demo)
+app.use(express.json({ limit: '1mb' })); // parse JSON body, prevent large payloads
 
-// প্রতিটি request কত সময় নিল তা log করা — debugging-এ খুব কাজে দেয়
+// Log how long each request took — very useful for debugging
 app.use((req, res, next) => {
-  const startedAt = Date.now(); // শুরুর সময়
+  const startedAt = Date.now(); // start time
   res.on('finish', () => {
-    const ms = Date.now() - startedAt; // মোট সময়
+    const ms = Date.now() - startedAt; // total time
     console.log(`[API] ${req.method} ${req.originalUrl} → ${res.statusCode} (${ms}ms)`); // log line
   });
-  next(); // পরবর্তী middleware
+  next(); // next middleware
 });
 
 // ── API Routes ──
@@ -59,24 +59,24 @@ app.use('/api/triage', triageRoutes); // staff dashboard
 app.use('/api/chats', chatRoutes); // patient screening
 app.use('/api/admin', adminRoutes); // admin panel
 
-// ── Health check (ML service ও safety-net status সহ) ──
+// ── Health check (including ML service and safety-net status) ──
 app.get('/api/health', async (req, res) => {
-  const mlAlive = await pingMlService(); // Flask service সাড়া দিচ্ছে কিনা
+  const mlAlive = await pingMlService(); // is Flask service responding
 
   res.json({
-    status: 'OK', // server চালু
-    message: 'S.O.S. Care API Server running', // পুরনো frontend এই key দেখে
-    mlService: mlAlive ? 'online' : 'offline (fallback heuristic active)', // ML অবস্থা
-    safetyNetRules: getSafetyNetRuleTags().length, // কতগুলো critical rule সক্রিয়
-    timestamp: new Date().toISOString(), // সময়
+    status: 'OK', // server running
+    message: 'S.O.S. Care API Server running', // legacy frontend checks this key
+    mlService: mlAlive ? 'online' : 'offline (fallback heuristic active)', // ML status
+    safetyNetRules: getSafetyNetRuleTags().length, // active critical rules count
+    timestamp: new Date().toISOString(), // time
   });
 });
 
-// ── Error handling (সব route-এর পরে বসাতে হয়) ──
-app.use(notFound); // কোনো route না মিললে 404
-app.use(errorHandler); // সব error এক format-এ
+// ── Error handling (must be placed after all routes) ──
+app.use(notFound); // 404 if no route matched
+app.use(errorHandler); // unified error format
 
 app.listen(PORT, () => {
-  console.log(`[Express] Server running on http://localhost:${PORT}`); // startup বার্তা
-  console.log(`[Safety-Net] ${getSafetyNetRuleTags().length} critical rules loaded`); // rule সংখ্যা
+  console.log(`[Express] Server running on http://localhost:${PORT}`); // startup message
+  console.log(`[Safety-Net] ${getSafetyNetRuleTags().length} critical rules loaded`); // rule count
 });

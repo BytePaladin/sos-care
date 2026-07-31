@@ -1,14 +1,14 @@
 /**
  * triageRoutes.js
- * Week 3 update: stats ও audit-trail route যোগ, প্রতিটি :id param এখন validate হয়.
- * সব route এখনো protect + requireStaff এর পেছনে — রোগী এগুলো দেখতে পারবে না.
+ * Week 3 update: stats and audit-trail routes added, every :id param is now validated.
+ * All routes are still behind protect + requireStaff — patients cannot see these.
  */
 
-import express from 'express'; // router তৈরির জন্য
+import express from 'express'; // for creating router
 import {
   getPatients, // priority queue
-  updatePatientStatus, // status পরিবর্তন
-  addPatientNote, // note যোগ
+  updatePatientStatus, // update status
+  addPatientNote, // add note
   getTriageStats, // dashboard counter
   getPatientActions, // audit trail
 } from '../controllers/triageController.js';
@@ -17,28 +17,28 @@ import { requireFields, validateObjectId, maxLength } from '../middleware/valida
 
 const router = express.Router(); // router instance
 
-// এই router-এর সব route-এ আগে login, তারপর staff role যাচাই হবে
-router.use(protect, requireStaff); // এক লাইনেই সবার জন্য প্রযোজ্য
+// All routes in this router will first verify login, then staff role
+router.use(protect, requireStaff); // applies to all in one line
 
-// priority queue — filter query param সমর্থন করে
+// priority queue — supports filter query params
 router.get('/patients', getPatients);
 
-// dashboard-এর উপরের counter গুলো
+// upper counters of the dashboard
 router.get('/stats', getTriageStats);
 
-// status পরিবর্তন
+// update status
 router.put('/patients/:id/status', validateObjectId('id'), updatePatientStatus);
 
-// clinical note যোগ
+// add clinical note
 router.post(
   '/patients/:id/notes', // route path
-  validateObjectId('id'), // id যাচাই
-  requireFields(['text']), // note ফাঁকা হতে পারবে না
-  maxLength('text', 1000), // সর্বোচ্চ 1000 character
+  validateObjectId('id'), // validate id
+  requireFields(['text']), // note cannot be empty
+  maxLength('text', 1000), // max 1000 characters
   addPatientNote // controller
 );
 
-// একটি রোগীর উপর নেওয়া সব staff action
+// all staff actions taken on a patient
 router.get('/patients/:id/actions', validateObjectId('id'), getPatientActions);
 
-export default router; // index.js এ mount হবে
+export default router; // will be mounted in index.js

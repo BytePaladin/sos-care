@@ -1,51 +1,51 @@
 /**
  * StaffAction.js
- * Proposal-এর ER diagram-এ থাকা STAFF_ACTIONS collection.
- * কোন staff কোন submission-এ কী action নিলো তার audit trail এখানে জমা হয়.
+ * STAFF_ACTIONS collection from the ER diagram in the Proposal.
+ * The audit trail of which staff took what action on which submission is stored here.
  */
 
-import mongoose from 'mongoose'; // schema তৈরির জন্য
+import mongoose from 'mongoose'; // for creating schema
 
 const staffActionSchema = new mongoose.Schema(
   {
-    // কোন triage record-এর উপর action নেওয়া হয়েছে
+    // on which triage record the action was taken
     submissionId: {
       type: mongoose.Schema.Types.ObjectId, // ObjectId reference
-      ref: 'PatientTriage', // PatientTriage collection-এর দিকে
-      required: true, // অবশ্যই থাকতে হবে
-      index: true, // দ্রুত খোঁজার জন্য index
+      ref: 'PatientTriage', // towards PatientTriage collection
+      required: true, // must be present
+      index: true, // index for fast searching
     },
 
-    // কোন staff action নিয়েছে
+    // which staff took the action
     staffId: {
       type: mongoose.Schema.Types.ObjectId, // ObjectId reference
-      ref: 'User', // User collection-এর দিকে
-      required: true, // অবশ্যই থাকতে হবে
-      index: true, // staff অনুযায়ী filter করার জন্য
+      ref: 'User', // towards User collection
+      required: true, // must be present
+      index: true, // for filtering by staff
     },
 
-    staffName: { type: String, default: '' }, // পরে user মুছে গেলেও নাম যেন থাকে
+    staffName: { type: String, default: '' }, // keep name even if user is deleted later
 
-    // কী ধরনের action — ER diagram-এর action_type
+    // what type of action — action_type of ER diagram
     actionType: {
       type: String, // string enum
-      enum: ['STATUS_UPDATE', 'NOTE_ADDED', 'ASSIGNED', 'RESOLVED'], // অনুমোদিত মানগুলো
-      required: true, // অবশ্যই থাকতে হবে
+      enum: ['STATUS_UPDATE', 'NOTE_ADDED', 'ASSIGNED', 'RESOLVED'], // allowed values
+      required: true, // must be present
     },
 
-    // action নেওয়ার পর record-এর review status কী হলো
+    // what became the review status of the record after taking the action
     status: {
       type: String, // string enum
-      enum: ['pending', 'contacted', 'false_positive', 'needs_review'], // PatientTriage-এর সাথে মিল
+      enum: ['pending', 'contacted', 'false_positive', 'needs_review'], // matches PatientTriage
       default: 'pending', // default pending
     },
 
-    note: { type: String, default: '' }, // ঐচ্ছিক মন্তব্য
+    note: { type: String, default: '' }, // optional comment
   },
-  { timestamps: true } // createdAt / updatedAt স্বয়ংক্রিয়ভাবে যোগ হবে
+  { timestamps: true } // createdAt / updatedAt will be added automatically
 );
 
-// একই submission-এর action গুলো সময় অনুযায়ী দ্রুত আনার জন্য compound index
+// compound index to quickly fetch actions of the same submission by time
 staffActionSchema.index({ submissionId: 1, createdAt: -1 });
 
 export const StaffAction = mongoose.model('StaffAction', staffActionSchema); // model export

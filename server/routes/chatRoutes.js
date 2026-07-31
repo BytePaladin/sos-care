@@ -1,38 +1,38 @@
 /**
  * chatRoutes.js
- * Week 3 update: সব chat route এখন optionalAuth-এর ভেতর দিয়ে যায় (anonymous
- * screening চালু থাকে), আর body validation middleware যোগ করা হয়েছে.
+ * Week 3 update: All chat routes now go through optionalAuth (anonymous
+ * screening is enabled), and body validation middleware is added.
  */
 
-import express from 'express'; // router তৈরির জন্য
+import express from 'express'; // for creating router
 import {
-  createChatSession, // নতুন session
-  sendMessage, // message পাঠানো
-  getUserChats, // নিজের session তালিকা
-  getChatSession, // একটি session বিস্তারিত
+  createChatSession, // new session
+  sendMessage, // send message
+  getUserChats, // list of own sessions
+  getChatSession, // session details
 } from '../controllers/chatController.js';
 import { protect, optionalAuth } from '../middleware/auth.js'; // auth middleware
 import { requireFields, validateObjectId, maxLength } from '../middleware/validate.js'; // validation
 
 const router = express.Router(); // router instance
 
-// নতুন screening session — login না থাকলেও কাজ করবে
+// New screening session — works without login
 router.post('/', optionalAuth, createChatSession);
 
-// নিজের সব chat — এখানে login বাধ্যতামূলক
+// All own chats — login is mandatory here
 router.get('/my-chats', protect, getUserChats);
 
-// একটি নির্দিষ্ট session দেখা — মালিক অথবা staff
+// View a specific session — owner or staff
 router.get('/:id', optionalAuth, validateObjectId('id'), getChatSession);
 
-// message পাঠানো — id বৈধ কিনা, text আছে কিনা, খুব বড় কিনা — সব যাচাই হয়
+// Send message — id validity, text presence, max length checks
 router.post(
   '/:id/messages', // route path
-  optionalAuth, // token থাকলে user বসবে
-  validateObjectId('id'), // session id বৈধ ObjectId কিনা
-  requireFields(['text']), // text অবশ্যই লাগবে
-  maxLength('text', 2000), // সর্বোচ্চ 2000 character
+  optionalAuth, // user will be populated if token exists
+  validateObjectId('id'), // is session id a valid ObjectId
+  requireFields(['text']), // text is mandatory
+  maxLength('text', 2000), // max 2000 characters
   sendMessage // controller
 );
 
-export default router; // index.js এ mount হবে
+export default router; // will be mounted in index.js

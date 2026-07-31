@@ -1,17 +1,17 @@
 /**
  * triage-selftest.js
- * MongoDB ছাড়াই triage logic যাচাই করার ছোট script.
- * চালান:  npm run selftest
+ * Small script to verify triage logic without MongoDB.
+ * Run: npm run selftest
  *
- * উদ্দেশ্য: safety-net override সত্যিই কাজ করছে কিনা তা প্রমাণ করা —
- * weekly progress report ও demo-তে এটি দেখানো যাবে.
+ * Purpose: To prove that the safety-net override really works —
+ * this can be shown in weekly progress reports and demos.
  */
 
 import { runSafetyNet, getSafetyNetRuleTags } from '../services/safetyNet.js'; // rule engine
 import { evaluateMessage } from '../services/triageEngine.js'; // hybrid engine
 import { normalizeSeverity, higherSeverity } from '../utils/severity.js'; // helper
 
-// পরীক্ষা করার জন্য নমুনা message — proposal-এর Appendix A থেকে নেওয়া
+// Sample messages for testing — taken from Appendix A of the proposal
 const CASES = [
   { text: 'I have not passed any urine since yesterday', expectRed: true }, // ANURIA
   { text: "I can't breathe properly and my chest feels tight", expectRed: true }, // BREATHING + CHEST
@@ -23,38 +23,38 @@ const CASES = [
   { text: 'I need to reschedule my appointment next week', expectRed: false }, // Green
 ];
 
-// একটি ছোট test runner — কোনো test library লাগছে না
+// A small test runner — no test library needed
 const run = async () => {
-  console.log(`\n=== S.O.S. Triage Self-Test ===`); // শিরোনাম
-  console.log(`Safety-net rules loaded: ${getSafetyNetRuleTags().join(', ')}\n`); // কোন rule আছে
+  console.log(`\n=== S.O.S. Triage Self-Test ===`); // Title
+  console.log(`Safety-net rules loaded: ${getSafetyNetRuleTags().join(', ')}\n`); // Which rules are there
 
-  let passed = 0; // কতগুলো পাস করল
-  let failed = 0; // কতগুলো ব্যর্থ
+  let passed = 0; // How many passed
+  let failed = 0; // How many failed
 
-  // প্রতিটি case ধরে ধরে চালানো হচ্ছে
+  // Running each case individually
   for (const testCase of CASES) {
-    const safety = runSafetyNet(testCase.text); // শুধু rule engine
-    const decision = await evaluateMessage(testCase.text); // পূর্ণ hybrid সিদ্ধান্ত
+    const safety = runSafetyNet(testCase.text); // Just the rule engine
+    const decision = await evaluateMessage(testCase.text); // Full hybrid decision
 
-    const gotRed = decision.finalLabel === 'red'; // ফলাফল red কিনা
-    const ok = gotRed === testCase.expectRed; // প্রত্যাশার সাথে মিলল কিনা
+    const gotRed = decision.finalLabel === 'red'; // Is the result red
+    const ok = gotRed === testCase.expectRed; // Did it match expectations
 
-    if (ok) passed += 1; // পাস গণনা
-    else failed += 1; // ব্যর্থ গণনা
+    if (ok) passed += 1; // Count pass
+    else failed += 1; // Count fail
 
-    // প্রতিটি ফলাফল পড়ার মতো করে দেখানো হচ্ছে
+    // Displaying each result in a readable format
     console.log(
       `${ok ? 'PASS' : 'FAIL'} | final=${decision.finalLabel.padEnd(6)} | ml=${decision.mlLabel.padEnd(6)} | override=${String(decision.ruleOverride).padEnd(5)} | rules=[${safety.matchedKeywords.join(',')}]`
     );
-    console.log(`       "${testCase.text}"\n`); // মূল message
+    console.log(`       "${testCase.text}"\n`); // Original message
   }
 
-  // helper গুলোর ছোট যাচাই
+  // Small check for helpers
   console.assert(normalizeSeverity('RED ') === 'red', 'normalizeSeverity failed'); // case/space handling
   console.assert(higherSeverity('green', 'red') === 'red', 'higherSeverity failed'); // priority handling
 
-  console.log(`Result: ${passed} passed, ${failed} failed.`); // সারাংশ
-  process.exit(failed > 0 ? 1 : 0); // ব্যর্থ থাকলে non-zero exit code
+  console.log(`Result: ${passed} passed, ${failed} failed.`); // Summary
+  process.exit(failed > 0 ? 1 : 0); // Non-zero exit code if there is a failure
 };
 
-run(); // script চালু
+run(); // Start script

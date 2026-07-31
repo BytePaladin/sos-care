@@ -1,50 +1,50 @@
 /**
  * auth.js
- * JWT ভিত্তিক authentication ও role-based access control.
- * Week 3 update: optionalAuth এবং ownership guard যোগ করা হয়েছে.
+ * JWT based authentication and role-based access control.
+ * Week 3 update: optionalAuth and ownership guard added.
  */
 
-import jwt from 'jsonwebtoken'; // token verify করার জন্য
-import { User } from '../models/User.js'; // token থেকে পাওয়া id দিয়ে user আনতে
+import jwt from 'jsonwebtoken'; // for token verification
+import { User } from '../models/User.js'; // fetch user using id from token
 
-// JWT secret এক জায়গা থেকে নেওয়া হচ্ছে যাতে সব ফাইলে একই মান থাকে
+// JWT secret is taken from one place so all files have the same value
 const JWT_SECRET = process.env.JWT_SECRET || 'sos-care-secret-key-2026';
 
 /**
- * Authorization header থেকে Bearer token আলাদা করে ফেরত দেয়.
- * token না থাকলে null.
+ * Extracts Bearer token from Authorization header.
+ * Returns null if token is not found.
  */
 const extractToken = (req) => {
-  const header = req.headers.authorization; // "Bearer <token>" আশা করছি
-  if (!header || !header.startsWith('Bearer ')) return null; // ঠিক format না হলে null
-  const token = header.split(' ')[1]; // space দিয়ে ভেঙে দ্বিতীয় অংশ নেওয়া
-  return token && token.trim() ? token.trim() : null; // ফাঁকা হলে null
+  const header = req.headers.authorization; // expecting "Bearer <token>"
+  if (!header || !header.startsWith('Bearer ')) return null; // null if format is incorrect
+  const token = header.split(' ')[1]; // take the second part split by space
+  return token && token.trim() ? token.trim() : null; // null if empty
 };
 
 /**
- * protect — এই route ব্যবহার করতে অবশ্যই login লাগবে.
+ * protect — login is required to use this route.
  */
 export const protect = async (req, res, next) => {
-  const token = extractToken(req); // header থেকে token বের করা
+  const token = extractToken(req); // extract token from header
 
-  // token একেবারেই না থাকলে 401
+  // 401 if token is completely missing
   if (!token) {
     return res.status(401).json({ message: 'Not authorized, no token provided' });
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET); // signature ও মেয়াদ যাচাই
-    const user = await User.findById(decoded.id).select('-password'); // password ছাড়া user আনা
+    const decoded = jwt.verify(token, JWT_SECRET); // verify signature and expiration
+    const user = await User.findById(decoded.id).select('-password'); // fetch user without password
 
-    // token বৈধ কিন্তু user মুছে ফেলা হয়েছে — তখনও 401
+    // 401 if token is valid but user is deleted
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
     }
 
-    req.user = user; // পরবর্তী middleware/controller-এ ব্যবহারের জন্য বসানো
-    return next(); // এগিয়ে যাওয়া
+    req.user = user; // set for use in next middleware/controller
+    return next(); // proceed
   } catch (error) {
-    // মেয়াদ শেষ হলে আলাদা বার্তা দিলে frontend সহজে বুঝতে পারে
+    // providing a specific message for expiration helps frontend
     const message =
       error.name === 'TokenExpiredError' ? 'Session expired, please log in again' : 'Not authorized, token failed';
     return res.status(401).json({ message });
@@ -52,42 +52,42 @@ export const protect = async (req, res, next) => {
 };
 
 /**
- * optionalAuth — token থাকলে user বসাবে, না থাকলেও request আটকাবে না.
- * anonymous রোগীর screening চালু রাখার জন্য দরকার.
+ * optionalAuth — sets user if token exists, otherwise doesn't block request.
+ * Needed for anonymous patient screening.
  */
 export const optionalAuth = async (req, res, next) => {
-  const token = extractToken(req); // token আছে কিনা দেখা
+  const token = extractToken(req); // check if token exists
 
-  // token না থাকলে anonymous হিসেবেই এগিয়ে যাবে
+  // proceed as anonymous if no token
   if (!token) {
-    req.user = null; // স্পষ্টভাবে null বসানো হচ্ছে
-    return next(); // request বন্ধ হচ্ছে না
+    req.user = null; // explicitly set to null
+    return next(); // request is not blocked
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET); // token যাচাই
-    req.user = await User.findById(decoded.id).select('-password'); // user বসানো
+    const decoded = jwt.verify(token, JWT_SECRET); // verify token
+    req.user = await User.findById(decoded.id).select('-password'); // set user
   } catch {
-    req.user = null; // token নষ্ট হলেও anonymous হিসেবে চলবে
+    req.user = null; // proceed as anonymous if token is invalid
   }
 
-  return next(); // দুই ক্ষেত্রেই এগিয়ে যাওয়া
+  return next(); // proceed in both cases
 };
 
 /**
- * requireStaff — শুধু staff (doctor / nurse / admin) এই route ব্যবহার করতে পারবে.
+ * requireStaff — only staff (doctor / nurse / admin) can use this route.
  */
 export const requireStaff = (req, res, next) => {
-  // user আছে এবং role staff বা admin হলে অনুমতি
+  // allow if user exists and role is staff or admin
   if (req.user && (req.user.role === 'staff' || req.user.role === 'admin')) {
-    return next(); // অনুমতি দেওয়া হলো
+    return next(); // permission granted
   }
 
-  return res.status(403).json({ message: 'Access denied: Staff privileges required' }); // নাহলে 403
+  return res.status(403).json({ message: 'Access denied: Staff privileges required' }); // 403 otherwise
 };
 
 /**
- * requireAdmin — শুধু hospital admin এই route ব্যবহার করতে পারবে.
+ * requireAdmin — only hospital admin can use this route.
  */
 export const requireAdmin = (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
@@ -97,20 +97,20 @@ export const requireAdmin = (req, res, next) => {
 };
 
 /**
- * allowOwnerOrStaff — একটি resource-এর মালিক অথবা staff হলেই অনুমতি.
- * @param {Function} getOwnerId — resource থেকে owner id বের করার function
+ * allowOwnerOrStaff — allow if owner of a resource or staff.
+ * @param {Function} getOwnerId — function to extract owner id from resource
  */
 export const allowOwnerOrStaff = (getOwnerId) => (req, res, next) => {
-  const ownerId = getOwnerId(req); // resource-এর owner id নেওয়া
+  const ownerId = getOwnerId(req); // get owner id of resource
 
-  // resource-এর কোনো owner না থাকলে (anonymous session) সবাই ব্যবহার করতে পারবে
-  if (!ownerId) return next(); // anonymous flow চালু রাখা
+  // allow everyone if resource has no owner (anonymous session)
+  if (!ownerId) return next(); // keep anonymous flow running
 
-  // staff হলে সব record দেখার অনুমতি আছে
+  // staff has permission to view all records
   if (req.user && req.user.role === 'staff') return next(); // staff bypass
 
-  // মালিক নিজে হলে অনুমতি
+  // allow if owner themselves
   if (req.user && req.user._id.toString() === ownerId.toString()) return next(); // owner ok
 
-  return res.status(403).json({ message: 'Access denied: you do not own this resource' }); // অন্য কেউ হলে 403
+  return res.status(403).json({ message: 'Access denied: you do not own this resource' }); // 403 for others
 };
