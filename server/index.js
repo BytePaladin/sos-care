@@ -80,3 +80,5 @@ app.listen(PORT, () => {
   console.log(`[Express] Server running on http://localhost:${PORT}`); // startup message
   console.log(`[Safety-Net] ${getSafetyNetRuleTags().length} critical rules loaded`); // rule count
 });
+
+export default app;

@@ -19,7 +19,7 @@ const handleResponse = async (res, defaultErrorMsg) => {
   const text = await res.text();
   // Vercel returns HTML if the API route is missing (falling back to index.html)
   if (text.startsWith('<')) {
-    throw new Error('Vercel Config Error: VITE_API_BASE_URL is missing. Please set it in Vercel Environment Variables.');
+    throw new Error('API Endpoint returned HTML instead of JSON. Ensure Vercel serverless functions are configured correctly.');
   }
   return JSON.parse(text);
 };
