@@ -25,6 +25,8 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
 
   useEffect(() => {
     fetchChats();
+    const interval = setInterval(fetchChats, 3000); // 3s auto-sync
+    return () => clearInterval(interval);
   }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

@@ -70,7 +70,7 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
   useEffect(() => {
     if (adminUser) {
       fetchAdminData();
-      const interval = setInterval(fetchAdminData, 8000); // 8s auto-sync
+      const interval = setInterval(fetchAdminData, 3000); // 3s auto-sync
       return () => clearInterval(interval);
     }
   }, [adminUser, fetchAdminData]);
