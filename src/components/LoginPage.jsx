@@ -23,23 +23,7 @@ export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
       onLogin(user);
       onShowToast(`Welcome back, ${user.name}!`, 'success');
     } catch (err) {
-      // Fallback to local storage if offline
-      const storedUsers = JSON.parse(localStorage.getItem('sos_users') || 'null') || defaultUsers;
-      const storedStaff = JSON.parse(localStorage.getItem('sos_users_staff') || 'null') || mockStaffUsers;
-
-      const staffUser = storedStaff.find((u) => u.phone === phone && u.password === password);
-      if (staffUser) {
-        onLogin({ ...staffUser, role: 'staff' });
-        setIsLoading(false);
-        return;
-      }
-
-      const patientUser = storedUsers.find((u) => u.phone === phone && u.password === password);
-      if (patientUser) {
-        onLogin({ ...patientUser, role: 'patient' });
-      } else {
-        onShowToast(err.message || 'Invalid phone number or password', 'error');
-      }
+      onShowToast(err.message || 'Invalid phone number or password', 'error');
     } finally {
       setIsLoading(false);
     }

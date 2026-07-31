@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { api } from '../services/api';
 import { MOCK_OTP, registeredPhones, mockUsers } from '../data/mockData';
 
 const SignUpPage = ({ onNavigate, onShowToast }) => {
@@ -89,29 +90,20 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
     e.preventDefault();
     if (!formValid || isSendingOtp) return;
 
-    // Load users from localStorage, fallback to default mockUsers
-    const storedUsers = JSON.parse(localStorage.getItem('sos_users') || 'null') || mockUsers;
-    const isRegistered = storedUsers.some(u => u.phone === phone.trim()) || registeredPhones.has(phone.trim());
-
-    if (isRegistered) {
-      onShowToast('This phone number is already registered', 'error');
-      return;
-    }
-
     await sendTelegramOtp();
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const isValid = otp === generatedOtp || (!import.meta.env.VITE_TELEGRAM_BOT_TOKEN && otp === MOCK_OTP);
     
     if (isValid) {
-      const storedUsers = JSON.parse(localStorage.getItem('sos_users') || 'null') || mockUsers;
-      const newUser = { name: fullName.trim(), phone: phone.trim(), password };
-      
-      localStorage.setItem('sos_users', JSON.stringify([...storedUsers, newUser]));
-      
-      onShowToast('Account created successfully! Please log in.', 'success');
-      onNavigate('login');
+      try {
+        await api.register(fullName.trim(), phone.trim(), password);
+        onShowToast('Account created successfully! Please log in.', 'success');
+        onNavigate('login');
+      } catch (err) {
+        onShowToast(err.message || 'Failed to create account.', 'error');
+      }
     } else {
       onShowToast('Invalid OTP. Please try again.', 'error');
     }

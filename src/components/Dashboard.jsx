@@ -5,15 +5,27 @@ import { useTheme } from '../context/ThemeContext';
 export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   const { isDark } = useTheme();
   
-  const storageKey = `sos_chats_${userName?.replace(/\s+/g, '_')}`;
-  const [chats, setChats] = useState(() => JSON.parse(localStorage.getItem(storageKey) || '[]'));
+  const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [activeChatId, setActiveChatId] = useState(null);
 
+  const fetchChats = async () => {
+    try {
+      const history = await api.getUserChats();
+      setChats(history.map(c => ({
+        ...c,
+        id: c._id,
+        preview: c.messages && c.messages.length > 0 ? c.messages[c.messages.length - 1].text : 'Empty chat',
+      })));
+    } catch (err) {
+      console.error('Failed to fetch chats:', err);
+    }
+  };
+
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(chats));
-  }, [chats, storageKey]);
+    fetchChats();
+  }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -36,116 +48,39 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   }, [inputText]);
 
   /* ── Helpers ── */
-  const sendMessage = (text) => {
+  const sendMessage = async (text) => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    const userMsg = { role: 'user', text: trimmed };
+    let currentSessionId = activeChatId;
     
-    let currentChatId = activeChatId;
-    if (currentChatId === null) {
-      currentChatId = Date.now();
-      setActiveChatId(currentChatId);
-    }
-
-    setChats((prevChats) => {
-      const idx = prevChats.findIndex((c) => c.id === currentChatId);
-      if (idx === -1) {
-        const newChat = {
-          id: currentChatId,
-          title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
-          preview: trimmed,
-          time: 'Just now',
-          messages: [userMsg],
-        };
-        return [newChat, ...prevChats];
-      } else {
-        return prevChats.map((c) => {
-          if (c.id === currentChatId) {
-            return {
-              ...c,
-              preview: trimmed,
-              time: 'Just now',
-              messages: [...c.messages, userMsg],
-            };
-          }
-          return c;
-        });
-      }
-    });
-
+    // Optimistic UI update for the user message
+    const userMsg = { sender: 'user', text: trimmed, timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
     setInputText('');
 
-    setTimeout(() => {
-      const categories = ['red', 'yellow', 'green'];
-      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-
-      let reply = '';
-      if (randomCategory === 'red') {
-        reply = '🚨 URGENT RED ALERT: Your symptoms indicate a high-risk medical condition. A medical professional has been notified. Please visit the Emergency Room immediately or call our Hospital Emergency Line at 📞 +880 1700-000000 / (02) 987654.';
-      } else if (randomCategory === 'yellow') {
-        reply = '⚠️ YELLOW CATEGORY (Moderate Risk): Your symptoms have been logged for practitioner review. If your condition deteriorates, please call our Hospital Help Desk at 📞 +880 1800-000000.';
-      } else {
-        reply = '✅ GREEN CATEGORY (Routine / Low Risk): Your screening is logged. For general hospital inquiries or appointments, call 📞 +880 1900-000000.';
+    try {
+      if (!currentSessionId) {
+        // Create new session via API
+        const newSession = await api.createChatSession();
+        currentSessionId = newSession.sessionId;
+        setActiveChatId(currentSessionId);
+        // The newly created session comes with a bot greeting message
+        setMessages((prev) => [...newSession.messages, userMsg]);
       }
 
-      const botMsg = { role: 'bot', text: reply };
+      // Send the user message to the backend
+      const updatedMessages = await api.sendChatMessage(currentSessionId, trimmed);
+      
+      // Update the chat window with the full conversation including the bot's response
+      setMessages(updatedMessages);
 
-      setChats((prevChats) => {
-        return prevChats.map((c) => {
-          if (c.id === currentChatId) {
-            return {
-              ...c,
-              preview: reply,
-              messages: [...c.messages, botMsg],
-            };
-          }
-          return c;
-        });
-      });
-
-      setMessages((prev) => [...prev, botMsg]);
-
-      // Save patient triage record for medical staff desk
-      try {
-        const storedPatients = JSON.parse(localStorage.getItem('sos_patients') || '[]');
-        const pName = userName || 'Screened Patient';
-        const pPhone = '017' + Math.floor(10000000 + Math.random() * 90000000);
-
-        const newPatientTriage = {
-          id: 'pat-' + Date.now(),
-          name: pName,
-          patientName: pName,
-          phone: pPhone,
-          patientPhone: pPhone,
-          category: randomCategory,
-          screenedAt: new Date().toISOString(),
-          chatHistory: [userMsg, botMsg],
-          reviewStatus: 'pending',
-          reviewComment: '',
-          notes: [
-            {
-              author: 'System',
-              text: `Symptom Screener categorized patient as [${randomCategory.toUpperCase()}] based on chat input: "${trimmed.substring(0, 80)}..."`,
-              timestamp: new Date().toISOString(),
-            },
-          ],
-          forwardedTo: null,
-          reviewedBy: null,
-          reviewedAt: null,
-        };
-
-        const filtered = storedPatients.filter((p) => p.name !== pName && p.patientName !== pName);
-        filtered.unshift(newPatientTriage);
-        localStorage.setItem('sos_patients', JSON.stringify(filtered));
-
-        // Dispatch custom storage event for instant multi-tab sync
-        window.dispatchEvent(new Event('storage'));
-      } catch (e) {
-        console.error('Failed to update local storage triage:', e);
-      }
-    }, 800);
+      // Refresh the chat list in the sidebar to update previews
+      await fetchChats();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to send message: ' + err.message);
+    }
   };
 
   const handleSend = () => sendMessage(inputText);

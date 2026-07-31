@@ -6,61 +6,40 @@ import { mockScreenedPatients, mockStaffUsers } from '../data/mockData';
 export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
   const { isDark } = useTheme();
 
-  // Load patients and staff from localStorage or defaults
-  const [patients, setPatients] = useState(() => {
-    return JSON.parse(localStorage.getItem('sos_patients') || 'null') || mockScreenedPatients;
-  });
+  // Load patients and staff from API
+  const [patients, setPatients] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [currentUser, setCurrentUser] = useState(user);
 
-  const [staffList, setStaffList] = useState(() => {
-    return JSON.parse(localStorage.getItem('sos_users_staff') || 'null') || mockStaffUsers;
-  });
-
-  const [currentUser, setCurrentUser] = useState(() => {
-    const savedStaffList = JSON.parse(localStorage.getItem('sos_users_staff') || 'null') || mockStaffUsers;
-    return savedStaffList.find((s) => s.id === user.id) || user;
-  });
-
-  // Fetch live data from backend API on mount & set 3s polling interval + storage listener
+  // Fetch live data from backend API on mount & set 3s polling interval
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
         const livePatients = await api.getPatients();
-        if (Array.isArray(livePatients) && livePatients.length > 0) {
+        if (Array.isArray(livePatients)) {
           setPatients(livePatients);
         }
       } catch (err) {
-        const cached = JSON.parse(localStorage.getItem('sos_patients') || 'null');
-        if (cached && Array.isArray(cached)) {
-          setPatients(cached);
-        }
+        console.error('Failed to fetch patients', err);
       }
 
       try {
         const liveStaff = await api.getStaffMembers();
-        if (Array.isArray(liveStaff) && liveStaff.length > 0) {
+        if (Array.isArray(liveStaff)) {
           setStaffList(liveStaff);
+          const found = liveStaff.find((s) => s.id === user.id);
+          if (found) setCurrentUser(found);
         }
       } catch (err) {
-        // Staff fallback
+        console.error('Failed to fetch staff members', err);
       }
     };
 
     fetchBackendData();
     const intervalId = setInterval(fetchBackendData, 3000);
 
-    const handleStorageChange = () => {
-      const cached = JSON.parse(localStorage.getItem('sos_patients') || 'null');
-      if (cached && Array.isArray(cached)) {
-        setPatients(cached);
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      clearInterval(intervalId);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+    return () => clearInterval(intervalId);
+  }, [user.id]);
 
   // State
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -88,10 +67,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     setTempChatId(currentUser.telegramChatId || '');
   }, [currentUser]);
 
-  // Save patients back to localStorage when state changes
-  useEffect(() => {
-    localStorage.setItem('sos_patients', JSON.stringify(patients));
-  }, [patients]);
+  // Removed local storage sync for patients
 
   // Telegram alert integration for unreviewed red-flagged patients
   useEffect(() => {
@@ -156,29 +132,8 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
       const updated = await api.updatePatientStatus(patientId, 'contacted', reviewComment.trim(), null);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
     } catch (err) {
-      setPatients((prevPatients) =>
-        prevPatients.map((p) => {
-          if (p.id === patientId) {
-            const updatedNotes = [
-              ...(p.notes || []),
-              {
-                author: user.name,
-                text: `Contacted patient. Comment: ${reviewComment.trim()}`,
-                timestamp: new Date().toISOString(),
-              },
-            ];
-            return {
-              ...p,
-              reviewStatus: 'contacted',
-              reviewComment: reviewComment.trim(),
-              notes: updatedNotes,
-              reviewedBy: user.name,
-              reviewedAt: new Date().toISOString(),
-            };
-          }
-          return p;
-        })
-      );
+      console.error(err);
+      alert('Failed to update patient status: ' + err.message);
     }
     setReviewComment('');
   };
@@ -188,29 +143,8 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
       const updated = await api.updatePatientStatus(patientId, 'false_positive', 'Marked as false positive', null);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
     } catch (err) {
-      setPatients((prevPatients) =>
-        prevPatients.map((p) => {
-          if (p.id === patientId) {
-            const updatedNotes = [
-              ...(p.notes || []),
-              {
-                author: user.name,
-                text: 'Marked patient as False Positive.',
-                timestamp: new Date().toISOString(),
-              },
-            ];
-            return {
-              ...p,
-              reviewStatus: 'false_positive',
-              reviewComment: 'False Positive',
-              notes: updatedNotes,
-              reviewedBy: user.name,
-              reviewedAt: new Date().toISOString(),
-            };
-          }
-          return p;
-        })
-      );
+      console.error(err);
+      alert('Failed to mark false positive: ' + err.message);
     }
   };
 
@@ -223,29 +157,8 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
       const updated = await api.updatePatientStatus(patientId, 'needs_review', `Forwarded to ${targetStaff?.name || 'Practitioner'}`, forwardTargetId);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
     } catch (err) {
-      setPatients((prevPatients) =>
-        prevPatients.map((p) => {
-          if (p.id === patientId) {
-            const updatedNotes = [
-              ...(p.notes || []),
-              {
-                author: user.name,
-                text: `Forwarded patient to ${targetStaff?.name || 'Practitioner'}.`,
-                timestamp: new Date().toISOString(),
-              },
-            ];
-            return {
-              ...p,
-              reviewStatus: 'needs_review',
-              forwardedTo: forwardTargetId,
-              notes: updatedNotes,
-              reviewedBy: user.name,
-              reviewedAt: new Date().toISOString(),
-            };
-          }
-          return p;
-        })
-      );
+      console.error(err);
+      alert('Failed to forward patient: ' + err.message);
     }
     setForwardTargetId('');
   };
@@ -259,22 +172,8 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
         prev.map((p) => (p.id === patientId ? { ...p, notes: updatedNotes } : p))
       );
     } catch (err) {
-      setPatients((prevPatients) =>
-        prevPatients.map((p) => {
-          if (p.id === patientId) {
-            const updatedNotes = [
-              ...(p.notes || []),
-              {
-                author: user.name,
-                text: newNoteText.trim(),
-                timestamp: new Date().toISOString(),
-              },
-            ];
-            return { ...p, notes: updatedNotes };
-          }
-          return p;
-        })
-      );
+      console.error(err);
+      alert('Failed to add note: ' + err.message);
     }
     setNewNoteText('');
   };

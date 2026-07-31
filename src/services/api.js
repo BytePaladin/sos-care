@@ -117,6 +117,22 @@ export const api = {
     return await res.json();
   },
 
+  getUserChats: async () => {
+    const res = await fetch(`${API_BASE}/chats/my-chats`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch chat history');
+    return await res.json();
+  },
+
+  getChatSession: async (sessionId) => {
+    const res = await fetch(`${API_BASE}/chats/${sessionId}`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch chat session');
+    return await res.json();
+  },
+
   sendChatMessage: async (sessionId, text) => {
     const res = await fetch(`${API_BASE}/chats/${sessionId}/messages`, {
       method: 'POST',
