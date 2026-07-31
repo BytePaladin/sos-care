@@ -30,7 +30,7 @@ export const evaluateMessage = async (text) => {
   return {
     mlLabel: randomLabel, 
     confidence: Number(Math.random().toFixed(2)), 
-    modelSource: 'temporary-random-mock', 
+    modelSource: 'fallback-heuristic', // MUST use valid enum value
     ruleOverride: isRed, 
     matchedKeywords: isRed ? ['RANDOM_RED_TEST'] : [], 
     finalLabel: randomLabel, 
