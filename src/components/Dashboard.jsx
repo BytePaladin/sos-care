@@ -370,7 +370,7 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
 
             {/* ── Message bubbles ── */}
             {messages.map((msg, idx) =>
-              msg.role === 'user' ? (
+              msg.sender === 'user' ? (
                 /* User message */
                 <div
                   key={idx}
