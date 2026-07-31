@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { cannedResponses, mockRecentChats } from '../data/mockData';
 import { useTheme } from '../context/ThemeContext';
+import { api } from '../services/api';
 
 export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   const { isDark } = useTheme();
