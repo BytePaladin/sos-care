@@ -11,6 +11,19 @@ const getHeaders = () => {
   return headers;
 };
 
+const handleResponse = async (res, defaultErrorMsg) => {
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || defaultErrorMsg);
+  }
+  const text = await res.text();
+  // Vercel returns HTML if the API route is missing (falling back to index.html)
+  if (text.startsWith('<')) {
+    throw new Error('Vercel Config Error: VITE_API_BASE_URL is missing. Please set it in Vercel Environment Variables.');
+  }
+  return JSON.parse(text);
+};
+
 export const api = {
   // Auth
   login: async (phone, password) => {
@@ -19,11 +32,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, password }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Login failed');
-    }
-    const data = await res.json();
+    const data = await handleResponse(res, 'Login failed');
     if (data.token) {
       localStorage.setItem('sos_token', data.token);
     }
@@ -36,11 +45,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, phone, password }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Registration failed');
-    }
-    const data = await res.json();
+    const data = await handleResponse(res, 'Registration failed');
     if (data.token) {
       localStorage.setItem('sos_token', data.token);
     }
