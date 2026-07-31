@@ -14,6 +14,7 @@ import { connectDB } from './config/db.js'; // MongoDB সংযোগ
 import authRoutes from './routes/authRoutes.js'; // /api/auth
 import triageRoutes from './routes/triageRoutes.js'; // /api/triage
 import chatRoutes from './routes/chatRoutes.js'; // /api/chats
+import adminRoutes from './routes/adminRoutes.js'; // /api/admin
 import { notFound, errorHandler } from './middleware/errorHandler.js'; // error middleware
 import { pingMlService } from './services/mlClient.js'; // ML service জীবিত কিনা
 import { getSafetyNetRuleTags } from './services/safetyNet.js'; // কতগুলো rule আছে
@@ -56,6 +57,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes); // authentication
 app.use('/api/triage', triageRoutes); // staff dashboard
 app.use('/api/chats', chatRoutes); // patient screening
+app.use('/api/admin', adminRoutes); // admin panel
 
 // ── Health check (ML service ও safety-net status সহ) ──
 app.get('/api/health', async (req, res) => {

@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, unique: true, index: true, trim: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ['patient', 'staff'], default: 'patient', index: true },
+    role: { type: String, enum: ['patient', 'staff', 'admin'], default: 'patient', index: true },
     staffRole: { type: String, default: null },
     telegramChatId: { type: String, default: '' },
     telegramOptIn: { type: Boolean, default: true },

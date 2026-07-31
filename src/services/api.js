@@ -126,4 +126,91 @@ export const api = {
     if (!res.ok) throw new Error('Failed to send message');
     return await res.json();
   },
+
+  // Admin Portal
+  adminLogin: async (phone, password) => {
+    const res = await fetch(`${API_BASE}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Admin authentication failed');
+    }
+    const data = await res.json();
+    if (data.token) {
+      localStorage.setItem('sos_token', data.token);
+    }
+    return data;
+  },
+
+  createStaff: async (name, phone, password, staffRole) => {
+    const res = await fetch(`${API_BASE}/admin/staff`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ name, phone, password, staffRole }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to create staff account');
+    }
+    return await res.json();
+  },
+
+  getAllUsers: async () => {
+    const res = await fetch(`${API_BASE}/admin/users`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch users');
+    }
+    return await res.json();
+  },
+
+  deleteUserAccount: async (id) => {
+    const res = await fetch(`${API_BASE}/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to delete account');
+    }
+    return await res.json();
+  },
+
+  getHospitalAnalytics: async () => {
+    const res = await fetch(`${API_BASE}/admin/analytics`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch hospital analytics');
+    }
+    return await res.json();
+  },
+
+  getStaffAnalytics: async () => {
+    const res = await fetch(`${API_BASE}/admin/staff-analytics`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch staff analytics');
+    }
+    return await res.json();
+  },
+
+  getStaffActions: async () => {
+    const res = await fetch(`${API_BASE}/admin/staff-actions`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch staff actions audit log');
+    }
+    return await res.json();
+  },
 };

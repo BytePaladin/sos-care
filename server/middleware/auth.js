@@ -78,12 +78,22 @@ export const optionalAuth = async (req, res, next) => {
  * requireStaff — শুধু staff (doctor / nurse / admin) এই route ব্যবহার করতে পারবে.
  */
 export const requireStaff = (req, res, next) => {
-  // user আছে এবং role staff হলে অনুমতি
-  if (req.user && req.user.role === 'staff') {
+  // user আছে এবং role staff বা admin হলে অনুমতি
+  if (req.user && (req.user.role === 'staff' || req.user.role === 'admin')) {
     return next(); // অনুমতি দেওয়া হলো
   }
 
   return res.status(403).json({ message: 'Access denied: Staff privileges required' }); // নাহলে 403
+};
+
+/**
+ * requireAdmin — শুধু hospital admin এই route ব্যবহার করতে পারবে.
+ */
+export const requireAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    return next();
+  }
+  return res.status(403).json({ message: 'Access denied: Administrator privileges required' });
 };
 
 /**
