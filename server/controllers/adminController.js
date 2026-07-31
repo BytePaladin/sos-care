@@ -158,13 +158,13 @@ export const getHospitalAnalytics = async (req, res) => {
         yellowPriority,
         greenRoutine,
       },
-      triageStatuses: {
+      triageQueue: {
         pendingReviews,
         contactedPatients,
         falsePositives,
         needsReview,
       },
-      chats: {
+      sessions: {
         totalChatSessions,
       },
       audit: {
