@@ -144,7 +144,10 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ text }),
     });
-    if (!res.ok) throw new Error('Failed to send message');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to send message');
+    }
     return await res.json();
   },
 
