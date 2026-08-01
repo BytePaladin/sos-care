@@ -38,10 +38,15 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     }
   }, [user.id]);
 
-  // Fetch live data from backend API on mount & set 3s polling interval
+  // Fetch live data from backend API on mount & set 10s polling interval
+  // We check visibilityState to prevent exhausting free-tier Serverless limits when tab is in background
   useEffect(() => {
     fetchBackendData();
-    const intervalId = setInterval(fetchBackendData, 3000);
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchBackendData();
+      }
+    }, 10000);
     return () => clearInterval(intervalId);
   }, [fetchBackendData]);
 

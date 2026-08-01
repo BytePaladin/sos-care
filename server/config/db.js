@@ -9,14 +9,35 @@ try {
   // fallback if restricted
 }
 
+// Global is used here to maintain a cached connection across hot reloads
+// in development and serverless function executions in production.
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
 export const connectDB = async () => {
-  try {
+  if (cached.conn) {
+    console.log('[MongoDB] Using cached connection');
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
     const connStr = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/sos-care';
-    const conn = await mongoose.connect(connStr);
-    console.log(`[MongoDB] Connected: ${conn.connection.host} / ${conn.connection.name}`);
-    return conn;
+    cached.promise = mongoose.connect(connStr).then((mongooseInstance) => {
+      console.log(`[MongoDB] Connected: ${mongooseInstance.connection.host} / ${mongooseInstance.connection.name}`);
+      return mongooseInstance;
+    });
+  }
+
+  try {
+    cached.conn = await cached.promise;
   } catch (error) {
+    cached.promise = null;
     console.error(`[MongoDB Error] ${error.message}`);
     process.exit(1);
   }
+
+  return cached.conn;
 };

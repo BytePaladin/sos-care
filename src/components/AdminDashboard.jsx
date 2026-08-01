@@ -73,7 +73,12 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
   useEffect(() => {
     if (adminUser) {
       fetchAdminData();
-      const interval = setInterval(fetchAdminData, 3000); // 3s auto-sync
+      // 15s auto-sync with visibility check to prevent exhausting free-tier limits when tab is inactive
+      const interval = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchAdminData();
+        }
+      }, 15000); 
       return () => clearInterval(interval);
     }
   }, [adminUser, fetchAdminData]);

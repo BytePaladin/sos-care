@@ -121,6 +121,7 @@ export const sendMessage = asyncHandler(async (req, res) => {
     triage.finalLabel = nextLabel; // final label (pre-save hook will also sync category)
     triage.aiAnalysis = buildAiAnalysis(cleanText, decision); // update summary and tag
     triage.screenedAt = new Date(); // last screening time
+    triage.reviewStatus = 'pending'; // MUST reset to pending so staff see the new data
 
     // if safety-net triggered, reason is written as system note (audit trail)
     if (decision.ruleOverride) {
