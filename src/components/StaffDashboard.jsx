@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../services/api';
 import { mockScreenedPatients, mockStaffUsers } from '../data/mockData';
@@ -10,36 +10,40 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
   const [patients, setPatients] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [currentUser, setCurrentUser] = useState(user);
+  
+  // Prevent polling from overwriting optimistic updates with stale data
+  const cooldownRef = useRef(false);
+
+  const fetchBackendData = useCallback(async () => {
+    if (cooldownRef.current) return;
+    
+    try {
+      const livePatients = await api.getPatients();
+      if (Array.isArray(livePatients)) {
+        setPatients(livePatients);
+      }
+    } catch (err) {
+      console.error('Failed to fetch patients', err);
+    }
+
+    try {
+      const liveStaff = await api.getStaffMembers();
+      if (Array.isArray(liveStaff)) {
+        setStaffList(liveStaff);
+        const found = liveStaff.find((s) => s.id === user.id);
+        if (found) setCurrentUser(found);
+      }
+    } catch (err) {
+      console.error('Failed to fetch staff members', err);
+    }
+  }, [user.id]);
 
   // Fetch live data from backend API on mount & set 3s polling interval
   useEffect(() => {
-    const fetchBackendData = async () => {
-      try {
-        const livePatients = await api.getPatients();
-        if (Array.isArray(livePatients)) {
-          setPatients(livePatients);
-        }
-      } catch (err) {
-        console.error('Failed to fetch patients', err);
-      }
-
-      try {
-        const liveStaff = await api.getStaffMembers();
-        if (Array.isArray(liveStaff)) {
-          setStaffList(liveStaff);
-          const found = liveStaff.find((s) => s.id === user.id);
-          if (found) setCurrentUser(found);
-        }
-      } catch (err) {
-        console.error('Failed to fetch staff members', err);
-      }
-    };
-
     fetchBackendData();
     const intervalId = setInterval(fetchBackendData, 3000);
-
     return () => clearInterval(intervalId);
-  }, [user.id]);
+  }, [fetchBackendData]);
 
   // State
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -131,6 +135,8 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     try {
       const updated = await api.updatePatientStatus(patientId, 'contacted', reviewComment.trim(), null);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
       console.error(err);
       alert('Failed to update patient status: ' + err.message);
@@ -140,11 +146,13 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
 
   const handleMarkFalsePositive = async (patientId) => {
     try {
-      const updated = await api.updatePatientStatus(patientId, 'false_positive', 'Marked as false positive', null);
+      const updated = await api.updatePatientStatus(patientId, 'false_positive', 'Marked as false positive/archived', null);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
       console.error(err);
-      alert('Failed to mark false positive: ' + err.message);
+      alert('Failed to archive patient: ' + err.message);
     }
   };
 
@@ -156,6 +164,8 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     try {
       const updated = await api.updatePatientStatus(patientId, 'needs_review', `Forwarded to ${targetStaff?.name || 'Practitioner'}`, forwardTargetId);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
       console.error(err);
       alert('Failed to forward patient: ' + err.message);
@@ -167,10 +177,10 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     if (!newNoteText.trim()) return;
 
     try {
-      const updatedNotes = await api.addPatientNote(patientId, newNoteText.trim());
-      setPatients((prev) =>
-        prev.map((p) => (p.id === patientId ? { ...p, notes: updatedNotes } : p))
-      );
+      const updated = await api.addPatientNote(patientId, newNoteText.trim());
+      setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
       console.error(err);
       alert('Failed to add note: ' + err.message);
@@ -183,6 +193,8 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     try {
       const updated = await api.updatePatientStatus(patientId, 'pending', '', null);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
       setPatients((prevPatients) =>
         prevPatients.map((p) => (p.id === patientId ? { ...p, reviewStatus: 'pending', forwardedTo: null } : p))

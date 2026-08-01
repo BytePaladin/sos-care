@@ -47,25 +47,28 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
   // Fetch admin dashboard data
   const fetchAdminData = useCallback(async () => {
     if (!adminUser) return;
-    setIsLoading(true);
+    // Only show loading initially if we have no data to prevent UI flashing during polling
+    if (usersList.length === 0) setIsLoading(true);
+    
     try {
       const [analyticsData, usersData, staffData, actionsData] = await Promise.all([
-        api.getHospitalAnalytics().catch(() => null),
-        api.getAllUsers().catch(() => []),
-        api.getStaffAnalytics().catch(() => []),
-        api.getStaffActions().catch(() => []),
+        api.getHospitalAnalytics().catch((err) => { console.error(err); return null; }),
+        api.getAllUsers().catch((err) => { console.error(err); return null; }),
+        api.getStaffAnalytics().catch((err) => { console.error(err); return null; }),
+        api.getStaffActions().catch((err) => { console.error(err); return null; }),
       ]);
 
       if (analyticsData) setAnalytics(analyticsData);
-      setUsersList(usersData);
-      setStaffAnalytics(staffData);
-      setStaffActions(actionsData);
+      if (usersData) setUsersList(usersData);
+      if (staffData) setStaffAnalytics(staffData);
+      if (actionsData) setStaffActions(actionsData);
     } catch (err) {
-      onShowToast?.(err.message || 'Failed to load hospital analytics', 'error');
+      console.error('Failed to fetch admin data during poll', err);
     } finally {
       setIsLoading(false);
     }
-  }, [adminUser, onShowToast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminUser]);
 
   useEffect(() => {
     if (adminUser) {
@@ -423,7 +426,7 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                   { label: 'Total Patients', count: analytics?.users?.totalPatients ?? '0', color: isDark ? 'bg-[#1e1e1e] border-neutral-800' : 'bg-white border-neutral-300' },
                   { label: 'Total Screenings', count: analytics?.screenings?.totalScreenings ?? '0', color: isDark ? 'bg-primary-container text-on-primary-container border-primary/20' : 'bg-primary/10 text-primary border-primary/20' },
                   { label: 'Red Alerts', count: analytics?.screenings?.redAlerts ?? '0', color: 'bg-error-container text-on-error-container border-error/20' },
-                  { label: 'Active Chats', count: analytics?.chats?.totalChatSessions ?? '0', color: isDark ? 'bg-[#1e1e1e] border-neutral-800' : 'bg-white border-neutral-300' },
+                  { label: 'Active Chats', count: analytics?.sessions?.totalChatSessions ?? '0', color: isDark ? 'bg-[#1e1e1e] border-neutral-800' : 'bg-white border-neutral-300' },
                 ].map((stat, idx) => (
                   <div key={idx} className={`p-5 rounded-2xl border ${stat.color} elevation-1 transition-transform hover:scale-[1.02]`}>
                     <p className="text-xs font-headline font-semibold uppercase tracking-wider opacity-80">{stat.label}</p>
@@ -463,10 +466,10 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                   <h3 className="font-headline text-sm font-bold mb-6 uppercase tracking-wider text-neutral-500">Triage Queue Status</h3>
                   <div className="grid grid-cols-2 gap-4">
                     {[
-                      { label: 'Pending Review', count: analytics?.triageStatuses?.pendingReviews ?? 0, color: 'text-warning' },
-                      { label: 'Contacted', count: analytics?.triageStatuses?.contactedPatients ?? 0, color: 'text-success' },
-                      { label: 'Needs Review', count: analytics?.triageStatuses?.needsReview ?? 0, color: 'text-primary' },
-                      { label: 'Archived', count: analytics?.triageStatuses?.falsePositives ?? 0, color: 'text-neutral-500' },
+                      { label: 'Pending Review', count: analytics?.triageQueue?.pendingReviews ?? 0, color: 'text-warning' },
+                      { label: 'Contacted', count: analytics?.triageQueue?.contactedPatients ?? 0, color: 'text-success' },
+                      { label: 'Needs Review', count: analytics?.triageQueue?.needsReview ?? 0, color: 'text-primary' },
+                      { label: 'Archived', count: analytics?.triageQueue?.falsePositives ?? 0, color: 'text-neutral-500' },
                     ].map((item, idx) => (
                       <div key={idx} className={`p-4 rounded-xl border ${isDark ? 'bg-[#121212] border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
                         <div className={`text-xs font-medium ${item.color}`}>{item.label}</div>

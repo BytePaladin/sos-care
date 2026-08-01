@@ -68,6 +68,7 @@ export const api = {
   getStaffMembers: async () => {
     const res = await fetch(`${API_BASE}/auth/staff`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) return [];
     return await res.json();
@@ -77,6 +78,7 @@ export const api = {
   getPatients: async () => {
     const res = await fetch(`${API_BASE}/triage/patients`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -125,6 +127,7 @@ export const api = {
   getUserChats: async () => {
     const res = await fetch(`${API_BASE}/chats/my-chats`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) throw new Error('Failed to fetch chat history');
     return await res.json();
@@ -133,6 +136,7 @@ export const api = {
   getChatSession: async (sessionId) => {
     const res = await fetch(`${API_BASE}/chats/${sessionId}`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) throw new Error('Failed to fetch chat session');
     return await res.json();
@@ -185,6 +189,7 @@ export const api = {
   getAllUsers: async () => {
     const res = await fetch(`${API_BASE}/admin/users`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -208,6 +213,7 @@ export const api = {
   getHospitalAnalytics: async () => {
     const res = await fetch(`${API_BASE}/admin/analytics`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -219,6 +225,7 @@ export const api = {
   getStaffAnalytics: async () => {
     const res = await fetch(`${API_BASE}/admin/staff-analytics`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -230,6 +237,7 @@ export const api = {
   getStaffActions: async () => {
     const res = await fetch(`${API_BASE}/admin/staff-actions`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

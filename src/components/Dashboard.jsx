@@ -28,6 +28,19 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
     const interval = setInterval(fetchChats, 3000); // 3s auto-sync
     return () => clearInterval(interval);
   }, []);
+
+  // Sync messages when polling updates chats
+  useEffect(() => {
+    if (activeChatId) {
+      const current = chats.find(c => c.id === activeChatId);
+      if (current && current.messages) {
+        setMessages((prev) => {
+          if (prev.length !== current.messages.length) return current.messages;
+          return prev;
+        });
+      }
+    }
+  }, [chats, activeChatId]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
