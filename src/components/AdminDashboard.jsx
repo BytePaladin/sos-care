@@ -110,6 +110,7 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
   const handleAdminLogout = () => {
     setAdminUser(null);
     localStorage.removeItem('sos_admin_user');
+    localStorage.removeItem('sos_token_admin');
     localStorage.removeItem('sos_token');
     if (onLogout) onLogout();
     onShowToast?.('Admin session logged out safely', 'info');

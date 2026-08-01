@@ -55,6 +55,9 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
 
   const handleLogout = useCallback(() => {
     setLoggedInUser(null);
+    localStorage.removeItem('sos_token_patient');
+    localStorage.removeItem('sos_token_staff');
+    localStorage.removeItem('sos_token_admin');
     localStorage.removeItem('sos_token');
     localStorage.removeItem('sos_admin_user');
     navigate('/login');

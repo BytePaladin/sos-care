@@ -1,7 +1,18 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const getHeaders = () => {
-  const token = localStorage.getItem('sos_token');
+  let token = localStorage.getItem('sos_token'); // Fallback legacy
+  
+  // Intelligent token selection based on route
+  const path = window.location.pathname;
+  if (path.startsWith('/ikh/admin')) {
+    token = localStorage.getItem('sos_token_admin') || token;
+  } else if (path.startsWith('/staff')) {
+    token = localStorage.getItem('sos_token_staff') || token;
+  } else {
+    token = localStorage.getItem('sos_token_patient') || token;
+  }
+
   const headers = {
     'Content-Type': 'application/json',
   };
@@ -34,7 +45,9 @@ export const api = {
     });
     const data = await handleResponse(res, 'Login failed');
     if (data.token) {
-      localStorage.setItem('sos_token', data.token);
+      if (data.role === 'admin') localStorage.setItem('sos_token_admin', data.token);
+      else if (data.role === 'staff') localStorage.setItem('sos_token_staff', data.token);
+      else localStorage.setItem('sos_token_patient', data.token);
     }
     return data;
   },
@@ -47,7 +60,9 @@ export const api = {
     });
     const data = await handleResponse(res, 'Registration failed');
     if (data.token) {
-      localStorage.setItem('sos_token', data.token);
+      if (data.role === 'admin') localStorage.setItem('sos_token_admin', data.token);
+      else if (data.role === 'staff') localStorage.setItem('sos_token_staff', data.token);
+      else localStorage.setItem('sos_token_patient', data.token);
     }
     return data;
   },
@@ -168,7 +183,7 @@ export const api = {
     }
     const data = await res.json();
     if (data.token) {
-      localStorage.setItem('sos_token', data.token);
+      localStorage.setItem('sos_token_admin', data.token);
     }
     return data;
   },
