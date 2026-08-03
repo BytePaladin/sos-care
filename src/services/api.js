@@ -273,4 +273,16 @@ export const api = {
     }
     return await res.json();
   },
+
+  clearAllTriageData: async () => {
+    const res = await fetch(`${API_BASE}/admin/triage/clear`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to clear triage data');
+    }
+    return await res.json();
+  },
 };

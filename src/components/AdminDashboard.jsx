@@ -44,6 +44,11 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
   // Delete modal confirmation target
   const [deletingUser, setDeletingUser] = useState(null);
 
+  // Clear all triage data modal state
+  const [showClearTriageModal, setShowClearTriageModal] = useState(false);
+  const [clearConfirmInput, setClearConfirmInput] = useState('');
+  const [isClearingTriage, setIsClearingTriage] = useState(false);
+
   // Fetch admin dashboard data
   const fetchAdminData = useCallback(async () => {
     if (!adminUser) return;
@@ -157,6 +162,21 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
       fetchAdminData();
     } catch (err) {
       onShowToast?.(err.message || 'Failed to delete account', 'error');
+    }
+  };
+
+  const handleClearAllTriage = async () => {
+    setIsClearingTriage(true);
+    try {
+      const res = await api.clearAllTriageData();
+      onShowToast?.(res.message || 'All past triage records have been cleared', 'success');
+      setShowClearTriageModal(false);
+      setClearConfirmInput('');
+      fetchAdminData();
+    } catch (err) {
+      onShowToast?.(err.message || 'Failed to clear triage data', 'error');
+    } finally {
+      setIsClearingTriage(false);
     }
   };
 
@@ -416,7 +436,26 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
             </h2>
           </div>
           
-
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setClearConfirmInput('');
+                setShowClearTriageModal(true);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                isDark 
+                  ? 'border-error/40 text-error/90 hover:bg-error/15 hover:text-error hover:border-error' 
+                  : 'border-error/30 text-error/90 hover:bg-error/10 hover:text-error'
+              }`}
+              title="Clear all past triage classifications and screening records"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>Clear Triage Data</span>
+            </button>
+          </div>
         </header>
 
         {/* Dynamic Content Panels */}
@@ -1021,6 +1060,76 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                 className="px-4 py-2 bg-error hover:brightness-110 text-white rounded-xl text-sm font-semibold transition-colors shadow-md"
               >
                 Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear All Triage Data Confirmation Modal */}
+      {showClearTriageModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 animate-fade-in">
+          <div className={`p-6 rounded-3xl border ${cardBgClass} max-w-md w-full shadow-2xl space-y-4 animate-scale-in`}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-error/15 text-error border border-error/25 flex items-center justify-center shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-base text-on-surface">Purge All Past Triage Data</h3>
+                <p className="text-[11px] text-neutral-400">Irreversible hospital database cleanup</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              This action will permanently delete <strong className={isDark ? 'text-white' : 'text-neutral-900'}>all clinical screening records, doctor triage reviews, severity override audits, and chat transcripts</strong> from the database.
+            </p>
+
+            <div className={`p-3 rounded-xl border text-[11px] text-neutral-400 ${isDark ? 'bg-[#141414] border-neutral-800' : 'bg-neutral-100 border-neutral-200'}`}>
+              <p className={`font-semibold mb-1 ${isDark ? 'text-neutral-300' : 'text-neutral-700'}`}>Preserved Records:</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>Patient & Staff User Accounts</li>
+                <li>Administrator Credentials</li>
+              </ul>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <label className="text-xs font-semibold text-neutral-400 block">
+                Type <span className="font-mono text-error font-bold">CLEAR</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={clearConfirmInput}
+                onChange={(e) => setClearConfirmInput(e.target.value)}
+                placeholder="Type CLEAR"
+                className={`w-full px-3 py-2 rounded-xl text-xs border outline-none font-mono focus:ring-1 focus:ring-error ${
+                  isDark ? 'bg-[#141414] border-neutral-700 text-white placeholder-neutral-600' : 'bg-neutral-50 border-neutral-300 text-neutral-900 placeholder-neutral-400'
+                }`}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-3 border-t dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowClearTriageModal(false);
+                  setClearConfirmInput('');
+                }}
+                disabled={isClearingTriage}
+                className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                  isDark ? 'bg-neutral-800 hover:bg-neutral-700 text-white' : 'bg-neutral-200 hover:bg-neutral-300 text-black'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAllTriage}
+                disabled={isClearingTriage || clearConfirmInput.trim().toUpperCase() !== 'CLEAR'}
+                className="px-4 py-2 bg-error hover:bg-error/90 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isClearingTriage ? 'Purging Records...' : 'Confirm Purge'}
               </button>
             </div>
           </div>

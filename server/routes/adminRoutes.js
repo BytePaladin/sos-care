@@ -7,6 +7,7 @@ import {
   getHospitalAnalytics,
   getStaffAnalytics,
   getStaffActions,
+  clearAllTriageData,
 } from '../controllers/adminController.js';
 import { protect, requireAdmin } from '../middleware/auth.js';
 
@@ -22,5 +23,6 @@ router.delete('/users/:id', protect, requireAdmin, deleteUserAccount);
 router.get('/analytics', protect, requireAdmin, getHospitalAnalytics);
 router.get('/staff-analytics', protect, requireAdmin, getStaffAnalytics);
 router.get('/staff-actions', protect, requireAdmin, getStaffActions);
+router.delete('/triage/clear', protect, requireAdmin, clearAllTriageData);
 
 export default router;

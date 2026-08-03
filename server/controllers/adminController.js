@@ -390,3 +390,26 @@ export const getStaffActions = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+/**
+ * Clear all past triage data, screenings, chat sessions, and related staff audit actions
+ */
+export const clearAllTriageData = async (req, res) => {
+  try {
+    const deletedTriages = await PatientTriage.deleteMany({});
+    const deletedChats = await ChatSession.deleteMany({});
+    const deletedActions = await StaffAction.deleteMany({});
+
+    res.json({
+      message: 'All past triage records, screening logs, chat sessions, and audit actions have been cleared successfully.',
+      details: {
+        screeningsCleared: deletedTriages.deletedCount,
+        chatSessionsCleared: deletedChats.deletedCount,
+        staffActionsCleared: deletedActions.deletedCount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Failed to clear triage data' });
+  }
+};
+
