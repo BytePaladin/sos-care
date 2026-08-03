@@ -28,7 +28,9 @@ const formatPatient = (doc, session) => {
     patientPhone: p.patientPhone, // phone number
     phone: p.patientPhone, // old frontend key
     category: p.finalLabel || p.category, // final label is shown
-    initialCategory: p.initialCategory || p.mlLabel || p.category || 'green', // original AI tier
+    initialCategory: p.doctorOverride?.isOverridden
+      ? (p.doctorOverride.previousCategory || p.initialCategory || 'green')
+      : (p.initialCategory || p.mlLabel || p.category || 'green'), // original AI tier
     doctorOverride: p.doctorOverride || { isOverridden: false }, // doctor escalation/de-escalation metadata
     mlLabel: p.mlLabel, // what model said (new)
     ruleOverride: p.ruleOverride, // whether safety-net triggered (new)
@@ -275,8 +277,10 @@ export const updatePatientSeverity = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Patient triage record not found' });
   }
 
-  const previousCategory = patient.finalLabel || patient.category || 'green';
-  const initialCategory = patient.initialCategory || patient.mlLabel || previousCategory;
+  const previousCategory = (patient.category || patient.finalLabel || 'green').toLowerCase();
+  const initialCategory = patient.doctorOverride?.isOverridden && patient.initialCategory
+    ? patient.initialCategory
+    : (patient.doctorOverride?.previousCategory || previousCategory);
 
   // Determine transition type (Escalation vs De-escalation)
   const severityRank = { red: 3, yellow: 2, green: 1 };

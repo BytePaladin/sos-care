@@ -119,6 +119,10 @@ export const sendMessage = asyncHandler(async (req, res) => {
     triage.matchedKeywords = [...new Set([...(triage.matchedKeywords || []), ...decision.matchedKeywords])]; // remove duplicates
     triage.modelSource = decision.modelSource; // ml-service or fallback
     triage.finalLabel = nextLabel; // final label (pre-save hook will also sync category)
+    triage.category = nextLabel;
+    if (!triage.doctorOverride?.isOverridden) {
+      triage.initialCategory = nextLabel; // sync automated AI tier
+    }
     triage.aiAnalysis = buildAiAnalysis(cleanText, decision); // update summary and tag
     triage.screenedAt = new Date(); // last screening time
     triage.reviewStatus = 'pending'; // MUST reset to pending so staff see the new data

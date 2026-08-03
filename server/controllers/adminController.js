@@ -198,11 +198,20 @@ export const getHospitalAnalytics = async (req, res) => {
     const discrepancyLog = [];
 
     allTriages.forEach((t) => {
-      const aiTier = (t.initialCategory || t.mlLabel || t.category || 'green').toLowerCase();
-      const finalTier = (t.finalLabel || t.category || 'green').toLowerCase();
-      const isOverridden = Boolean(t.doctorOverride?.isOverridden || (t.initialCategory && t.initialCategory !== t.category));
+      const isDoctorOverridden = Boolean(t.doctorOverride?.isOverridden);
       const isFalsePositive = t.reviewStatus === 'false_positive';
-      const isReviewed = t.reviewStatus !== 'pending' || isOverridden;
+      const isReviewed = t.reviewStatus !== 'pending' || isDoctorOverridden;
+
+      // The AI's baseline tier before any human doctor intervention:
+      // If overridden, check previousCategory first, then initialCategory, then mlLabel
+      let aiTier;
+      if (isDoctorOverridden) {
+        aiTier = (t.doctorOverride?.previousCategory || t.initialCategory || t.mlLabel || 'green').toLowerCase();
+      } else {
+        aiTier = (t.initialCategory || t.finalLabel || t.category || t.mlLabel || 'green').toLowerCase();
+      }
+
+      const finalTier = (t.finalLabel || t.category || 'green').toLowerCase();
 
       if (tierStats[aiTier]) {
         tierStats[aiTier].initialAi += 1;
@@ -227,7 +236,7 @@ export const getHospitalAnalytics = async (req, res) => {
             date: t.reviewedAt || t.screenedAt,
             comment: t.reviewComment || 'Flagged as non-urgent false positive',
           });
-        } else if (isOverridden && prevRank !== currRank) {
+        } else if (isDoctorOverridden && prevRank !== currRank) {
           if (currRank > prevRank) {
             escalatedCount += 1;
             discrepancyLog.push({
@@ -257,7 +266,7 @@ export const getHospitalAnalytics = async (req, res) => {
           }
           if (tierStats[aiTier]) tierStats[aiTier].overridden += 1;
         } else {
-          // Concordant
+          // Concordant (either reviewed with same tier, or overridden back to same rank)
           concordantCount += 1;
           if (tierStats[aiTier]) tierStats[aiTier].verified += 1;
         }
