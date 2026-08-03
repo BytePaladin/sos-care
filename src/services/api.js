@@ -1,16 +1,16 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const getHeaders = () => {
-  let token = localStorage.getItem('sos_token'); // Fallback legacy
+  let token = sessionStorage.getItem('sos_token'); // Fallback legacy
   
   // Intelligent token selection based on route
   const path = window.location.pathname;
   if (path.startsWith('/ikh/admin')) {
-    token = localStorage.getItem('sos_token_admin') || token;
+    token = sessionStorage.getItem('sos_token_admin') || token;
   } else if (path.startsWith('/staff')) {
-    token = localStorage.getItem('sos_token_staff') || token;
+    token = sessionStorage.getItem('sos_token_staff') || token;
   } else {
-    token = localStorage.getItem('sos_token_patient') || token;
+    token = sessionStorage.getItem('sos_token_patient') || token;
   }
 
   const headers = {
@@ -45,9 +45,9 @@ export const api = {
     });
     const data = await handleResponse(res, 'Login failed');
     if (data.token) {
-      if (data.role === 'admin') localStorage.setItem('sos_token_admin', data.token);
-      else if (data.role === 'staff') localStorage.setItem('sos_token_staff', data.token);
-      else localStorage.setItem('sos_token_patient', data.token);
+      if (data.role === 'admin') sessionStorage.setItem('sos_token_admin', data.token);
+      else if (data.role === 'staff') sessionStorage.setItem('sos_token_staff', data.token);
+      else sessionStorage.setItem('sos_token_patient', data.token);
     }
     return data;
   },
@@ -60,9 +60,9 @@ export const api = {
     });
     const data = await handleResponse(res, 'Registration failed');
     if (data.token) {
-      if (data.role === 'admin') localStorage.setItem('sos_token_admin', data.token);
-      else if (data.role === 'staff') localStorage.setItem('sos_token_staff', data.token);
-      else localStorage.setItem('sos_token_patient', data.token);
+      if (data.role === 'admin') sessionStorage.setItem('sos_token_admin', data.token);
+      else if (data.role === 'staff') sessionStorage.setItem('sos_token_staff', data.token);
+      else sessionStorage.setItem('sos_token_patient', data.token);
     }
     return data;
   },
@@ -111,6 +111,19 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || 'Failed to update patient status');
+    }
+    return await res.json();
+  },
+
+  updatePatientSeverity: async (id, category, reason) => {
+    const res = await fetch(`${API_BASE}/triage/patients/${id}/severity`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ category, reason }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to update triage category');
     }
     return await res.json();
   },
@@ -183,7 +196,7 @@ export const api = {
     }
     const data = await res.json();
     if (data.token) {
-      localStorage.setItem('sos_token_admin', data.token);
+      sessionStorage.setItem('sos_token_admin', data.token);
     }
     return data;
   },

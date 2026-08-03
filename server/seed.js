@@ -57,14 +57,14 @@ const seedDB = async () => {
     const patientUser = await User.create({
       name: 'Kamrul Hasan',
       phone: '01700000000',
-      password: 'password123',
+      password: 'Demo@1234',
       role: 'patient',
     });
 
     const staff1 = await User.create({
       name: 'Dr. Nusrat Jahan',
       phone: '01800000000',
-      password: 'password123',
+      password: 'Staff@1234',
       role: 'staff',
       staffRole: 'Chief Nephrologist',
       telegramChatId: process.env.VITE_TELEGRAM_CHAT_ID || '6116969946',
@@ -74,7 +74,7 @@ const seedDB = async () => {
     const staff2 = await User.create({
       name: 'Dr. Tanvir Ahmed',
       phone: '01900000000',
-      password: 'password123',
+      password: 'Staff@1234',
       role: 'staff',
       staffRole: 'Resident Physician',
       telegramChatId: '',

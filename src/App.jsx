@@ -55,6 +55,11 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
 
   const handleLogout = useCallback(() => {
     setLoggedInUser(null);
+    sessionStorage.removeItem('sos_token_patient');
+    sessionStorage.removeItem('sos_token_staff');
+    sessionStorage.removeItem('sos_token_admin');
+    sessionStorage.removeItem('sos_token');
+    sessionStorage.removeItem('sos_admin_user');
     localStorage.removeItem('sos_token_patient');
     localStorage.removeItem('sos_token_staff');
     localStorage.removeItem('sos_token_admin');
@@ -113,7 +118,6 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
           element={
             <AdminDashboard
               onShowToast={showToast}
-              onLogout={handleLogout}
             />
           }
         />

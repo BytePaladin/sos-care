@@ -64,6 +64,11 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
   const [forwardTargetId, setForwardTargetId] = useState('');
   const [newNoteText, setNewNoteText] = useState('');
 
+  // Triage Category Escalation / De-escalation states
+  const [pendingNewCategory, setPendingNewCategory] = useState(null);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [isOverridingCategory, setIsOverridingCategory] = useState(false);
+
   // Telegram alert modal state
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
   const [tempOptIn, setTempOptIn] = useState(currentUser.telegramOptIn);
@@ -204,6 +209,24 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
       setPatients((prevPatients) =>
         prevPatients.map((p) => (p.id === patientId ? { ...p, reviewStatus: 'pending', forwardedTo: null } : p))
       );
+    }
+  };
+
+  // Escalate / De-escalate Triage Category
+  const handleUpdateSeverity = async (patientId, newCategory, reason = '') => {
+    setIsOverridingCategory(true);
+    try {
+      const updated = await api.updatePatientSeverity(patientId, newCategory, reason);
+      setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
+      setPendingNewCategory(null);
+      setOverrideReason('');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update triage category: ' + err.message);
+    } finally {
+      setIsOverridingCategory(false);
     }
   };
 
@@ -772,15 +795,213 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
 
               {/* Medical actions and controls panel */}
               <div className={`w-full lg:w-80 shrink-0 p-6 flex flex-col gap-6 overflow-y-auto scrollbar-thin ${isDark ? 'bg-[#161616]' : 'bg-[#f8f9fa]'}`}>
-                <div>
-                  <h3 className="font-headline font-bold text-base">Triage Category</h3>
-                  <div className="mt-3 flex items-center gap-3">
-                    <span className={`w-4.5 h-4.5 rounded-full ${
-                      selectedPatient.category === 'red' ? 'bg-error animate-pulse-red' : selectedPatient.category === 'yellow' ? 'bg-warning' : 'bg-success'
-                    }`} />
-                    <span className="font-headline font-bold uppercase text-sm">
-                      {selectedPatient.category} priority
-                    </span>
+                {/* Triage Category & Interactive Clinical Severity Override */}
+                <div className={`p-4 rounded-2xl border ${
+                  selectedPatient.category === 'red' 
+                    ? 'border-error/30 bg-error/5' 
+                    : selectedPatient.category === 'yellow' 
+                    ? 'border-warning/30 bg-warning/5' 
+                    : 'border-success/30 bg-success/5'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-headline font-bold text-xs uppercase tracking-wider text-neutral-400">
+                      Triage Category
+                    </h3>
+                    {/* Provenance Badge */}
+                    {selectedPatient.doctorOverride?.isOverridden ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
+                        <span>👨‍⚕️</span> Overridden
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-800 text-neutral-300 border border-neutral-700">
+                        <span>🤖</span> AI Output
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Current Active Category Pill */}
+                  <div className="mt-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className={`w-3.5 h-3.5 rounded-full shrink-0 ${
+                        selectedPatient.category === 'red' ? 'bg-error animate-pulse-red' : selectedPatient.category === 'yellow' ? 'bg-warning' : 'bg-success'
+                      }`} />
+                      <span className="font-headline font-black uppercase text-sm tracking-wide">
+                        {selectedPatient.category} Priority
+                      </span>
+                    </div>
+
+                    {selectedPatient.doctorOverride?.isOverridden && (
+                      <span className="text-[10px] text-neutral-400">
+                        Initial: <span className="font-semibold uppercase">{selectedPatient.initialCategory || 'green'}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Doctor Override Details if active */}
+                  {selectedPatient.doctorOverride?.isOverridden && selectedPatient.doctorOverride?.overriddenByName && (
+                    <div className="mt-2 pt-2 border-t dark:border-neutral-800/60 text-[11px] text-neutral-400 space-y-0.5">
+                      <p>
+                        By <span className="font-semibold text-on-surface">{selectedPatient.doctorOverride.overriddenByName}</span>
+                        {selectedPatient.doctorOverride.overriddenAt && (
+                          <span> • {new Date(selectedPatient.doctorOverride.overriddenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
+                      </p>
+                      {selectedPatient.doctorOverride.reason && (
+                        <p className="italic text-neutral-300">"{selectedPatient.doctorOverride.reason}"</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Interactive Severity Override Action Controls */}
+                  <div className="mt-4 pt-3 border-t dark:border-neutral-800">
+                    <p className="text-[11px] font-bold text-neutral-400 mb-2 flex items-center justify-between">
+                      <span>Clinical Severity Override</span>
+                      <span className="text-[10px] font-normal text-neutral-500">Escalate / De-escalate</span>
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {/* Red Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedPatient.category === 'red') return;
+                          setPendingNewCategory('red');
+                        }}
+                        disabled={isOverridingCategory || selectedPatient.category === 'red'}
+                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-0.5 cursor-pointer disabled:cursor-default ${
+                          selectedPatient.category === 'red'
+                            ? 'bg-error text-white shadow-sm ring-2 ring-error/40 opacity-95'
+                            : pendingNewCategory === 'red'
+                            ? 'bg-error/20 border-2 border-error text-error font-extrabold'
+                            : 'border border-error/30 hover:bg-error/15 text-error/90 hover:text-error'
+                        }`}
+                        title="Escalate to Red Alert"
+                      >
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-error inline-block" />
+                          Red
+                        </span>
+                        <span className="text-[9px] font-medium opacity-80">
+                          {selectedPatient.category === 'red' ? 'Active' : '🔺 Escalate'}
+                        </span>
+                      </button>
+
+                      {/* Yellow Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedPatient.category === 'yellow') return;
+                          setPendingNewCategory('yellow');
+                        }}
+                        disabled={isOverridingCategory || selectedPatient.category === 'yellow'}
+                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-0.5 cursor-pointer disabled:cursor-default ${
+                          selectedPatient.category === 'yellow'
+                            ? 'bg-warning text-black shadow-sm ring-2 ring-warning/40 opacity-95'
+                            : pendingNewCategory === 'yellow'
+                            ? 'bg-warning/20 border-2 border-warning text-warning font-extrabold'
+                            : 'border border-warning/30 hover:bg-warning/15 text-warning/90 hover:text-warning'
+                        }`}
+                        title="Change to Yellow Priority"
+                      >
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-warning inline-block" />
+                          Yellow
+                        </span>
+                        <span className="text-[9px] font-medium opacity-80">
+                          {selectedPatient.category === 'yellow'
+                            ? 'Active'
+                            : selectedPatient.category === 'green'
+                            ? '🔺 Escalate'
+                            : '🔻 De-escalate'}
+                        </span>
+                      </button>
+
+                      {/* Green Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedPatient.category === 'green') return;
+                          setPendingNewCategory('green');
+                        }}
+                        disabled={isOverridingCategory || selectedPatient.category === 'green'}
+                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-0.5 cursor-pointer disabled:cursor-default ${
+                          selectedPatient.category === 'green'
+                            ? 'bg-success text-white shadow-sm ring-2 ring-success/40 opacity-95'
+                            : pendingNewCategory === 'green'
+                            ? 'bg-success/20 border-2 border-success text-success font-extrabold'
+                            : 'border border-success/30 hover:bg-success/15 text-success/90 hover:text-success'
+                        }`}
+                        title="De-escalate to Green Routine"
+                      >
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-success inline-block" />
+                          Green
+                        </span>
+                        <span className="text-[9px] font-medium opacity-80">
+                          {selectedPatient.category === 'green' ? 'Active' : '🔻 De-escalate'}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Quick Confirmation Prompt when a new tier is selected */}
+                    {pendingNewCategory && pendingNewCategory !== selectedPatient.category && (
+                      <div className={`mt-3 p-3 rounded-xl border animate-fade-in ${
+                        isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-neutral-200'
+                      }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-on-surface">
+                            {['red', 'yellow'].indexOf(pendingNewCategory) > ['red', 'yellow'].indexOf(selectedPatient.category) || (selectedPatient.category === 'green' && pendingNewCategory !== 'green')
+                              ? '🔺 Escalate'
+                              : '🔻 De-escalate'}{' '}
+                            to <span className="uppercase font-black">{pendingNewCategory}</span>?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingNewCategory(null);
+                              setOverrideReason('');
+                            }}
+                            className="text-neutral-400 hover:text-on-surface text-xs"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          value={overrideReason}
+                          onChange={(e) => setOverrideReason(e.target.value)}
+                          placeholder="Optional clinical rationale / notes..."
+                          className={`w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2.5 outline-none focus:ring-1 focus:ring-primary ${
+                            isDark ? 'bg-[#121212] border-neutral-700 text-white' : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+                          }`}
+                        />
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateSeverity(selectedPatient.id, pendingNewCategory, overrideReason)}
+                            disabled={isOverridingCategory}
+                            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-white cursor-pointer disabled:opacity-50 ${
+                              pendingNewCategory === 'red' ? 'bg-error hover:bg-error/90' : pendingNewCategory === 'yellow' ? 'bg-warning text-black hover:bg-warning/90' : 'bg-success hover:bg-success/90'
+                            }`}
+                          >
+                            {isOverridingCategory ? 'Saving...' : 'Confirm Re-classification'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingNewCategory(null);
+                              setOverrideReason('');
+                            }}
+                            disabled={isOverridingCategory}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border dark:border-neutral-700 text-neutral-400 hover:text-on-surface cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

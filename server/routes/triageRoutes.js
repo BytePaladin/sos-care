@@ -8,6 +8,7 @@ import express from 'express'; // for creating router
 import {
   getPatients, // priority queue
   updatePatientStatus, // update status
+  updatePatientSeverity, // escalate / de-escalate severity tier
   addPatientNote, // add note
   getTriageStats, // dashboard counter
   getPatientActions, // audit trail
@@ -28,6 +29,14 @@ router.get('/stats', getTriageStats);
 
 // update status
 router.put('/patients/:id/status', validateObjectId('id'), updatePatientStatus);
+
+// escalate / de-escalate severity tier
+router.put(
+  '/patients/:id/severity',
+  validateObjectId('id'),
+  requireFields(['category']),
+  updatePatientSeverity
+);
 
 // add clinical note
 router.post(

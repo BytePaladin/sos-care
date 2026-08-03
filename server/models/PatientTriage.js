@@ -49,6 +49,25 @@ const patientTriageSchema = new mongoose.Schema(
       riskFactors: [{ type: String }],
     },
 
+    // Original AI Assigned Category before doctor override
+    initialCategory: {
+      type: String,
+      enum: ['red', 'yellow', 'green'],
+      default: function () {
+        return this.finalLabel || this.category || 'green';
+      },
+    },
+
+    // Doctor Severity Override Tracking (Escalation / De-escalation)
+    doctorOverride: {
+      isOverridden: { type: Boolean, default: false },
+      overriddenBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      overriddenByName: { type: String, default: '' },
+      overriddenAt: { type: Date, default: null },
+      previousCategory: { type: String, enum: ['red', 'yellow', 'green', ''], default: '' },
+      reason: { type: String, default: '' },
+    },
+
     // Review Workflow Status
     reviewStatus: {
       type: String,

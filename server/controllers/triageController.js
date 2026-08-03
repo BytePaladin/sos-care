@@ -28,6 +28,8 @@ const formatPatient = (doc, session) => {
     patientPhone: p.patientPhone, // phone number
     phone: p.patientPhone, // old frontend key
     category: p.finalLabel || p.category, // final label is shown
+    initialCategory: p.initialCategory || p.mlLabel || p.category || 'green', // original AI tier
+    doctorOverride: p.doctorOverride || { isOverridden: false }, // doctor escalation/de-escalation metadata
     mlLabel: p.mlLabel, // what model said (new)
     ruleOverride: p.ruleOverride, // whether safety-net triggered (new)
     matchedKeywords: p.matchedKeywords || [], // which rule hit (new)
@@ -253,3 +255,66 @@ export const getPatientActions = asyncHandler(async (req, res) => {
 
   res.json(actions); // return list
 });
+
+/**
+ * PUT /api/triage/patients/:id/severity
+ * Staff escalates or de-escalates a patient's triage severity tier.
+ */
+export const updatePatientSeverity = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { category, reason } = req.body;
+
+  const validTiers = ['red', 'yellow', 'green'];
+  const newTier = category ? category.toLowerCase().trim() : '';
+  if (!validTiers.includes(newTier)) {
+    return res.status(400).json({ message: 'Invalid triage category. Must be red, yellow, or green' });
+  }
+
+  const patient = await PatientTriage.findById(id);
+  if (!patient) {
+    return res.status(404).json({ message: 'Patient triage record not found' });
+  }
+
+  const previousCategory = patient.finalLabel || patient.category || 'green';
+  const initialCategory = patient.initialCategory || patient.mlLabel || previousCategory;
+
+  // Determine transition type (Escalation vs De-escalation)
+  const severityRank = { red: 3, yellow: 2, green: 1 };
+  const prevRank = severityRank[previousCategory] || 1;
+  const newRank = severityRank[newTier] || 1;
+  const transitionType = newRank > prevRank ? 'ESCALATED' : newRank < prevRank ? 'DE-ESCALATED' : 'RE-CONFIRMED';
+
+  // Apply updates
+  patient.initialCategory = initialCategory;
+  patient.category = newTier;
+  patient.finalLabel = newTier;
+  patient.doctorOverride = {
+    isOverridden: true,
+    overriddenBy: req.user._id,
+    overriddenByName: req.user.name,
+    overriddenAt: new Date(),
+    previousCategory,
+    reason: (reason || '').trim(),
+  };
+
+  await patient.save();
+
+  // Audit trail entry
+  const noteMessage = `[${transitionType}] ${req.user.name} changed severity from ${previousCategory.toUpperCase()} to ${newTier.toUpperCase()}${reason ? `: "${reason}"` : ''}`;
+  await StaffAction.create({
+    submissionId: patient._id,
+    staffId: req.user._id,
+    staffName: req.user.name,
+    actionType: 'SEVERITY_OVERRIDE',
+    status: patient.reviewStatus,
+    note: noteMessage,
+  });
+
+  const updated = await PatientTriage.findById(id)
+    .populate('reviewedBy', 'name staffRole')
+    .populate('forwardedTo', 'name staffRole');
+
+  const session = await ChatSession.findOne({ triageId: id });
+  res.json(formatPatient(updated, session));
+});
+

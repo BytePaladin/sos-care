@@ -29,7 +29,7 @@ const staffActionSchema = new mongoose.Schema(
     // what type of action — action_type of ER diagram
     actionType: {
       type: String, // string enum
-      enum: ['STATUS_UPDATE', 'NOTE_ADDED', 'ASSIGNED', 'RESOLVED'], // allowed values
+      enum: ['STATUS_UPDATE', 'NOTE_ADDED', 'ASSIGNED', 'RESOLVED', 'SEVERITY_OVERRIDE'], // allowed values
       required: true, // must be present
     },
 
