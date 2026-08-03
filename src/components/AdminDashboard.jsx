@@ -488,54 +488,60 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                 </div>
               </div>
 
-              {/* ── AI vs. Doctor Clinical Concordance Metric Suite ── */}
+              {/* ── Clinical Triage Concordance Suite ── */}
               <div className={`p-6 rounded-2xl border ${cardBgClass} elevation-1 space-y-6 mt-6`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 dark:border-neutral-800">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">🤖⚡👨‍⚕️</span>
-                      <h3 className="font-headline text-base font-bold">
-                        AI vs. Doctor Clinical Concordance Metric
-                      </h3>
-                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider ${
-                        isDark ? 'bg-primary/20 text-[#80D5D4] border border-primary/30' : 'bg-primary/10 text-primary border border-primary/20'
-                      }`}>
-                        Clinical Accuracy
-                      </span>
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary/10 text-primary border border-primary/20 shrink-0 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
                     </div>
-                    <p className="text-xs text-neutral-400 mt-1">
-                      Evaluates diagnostic agreement between AI automated triage classification and attending nephrologist verification.
-                    </p>
+                    <div>
+                      <h3 className="font-headline text-base font-bold text-on-surface">
+                        Clinical Triage Concordance
+                      </h3>
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        Diagnostic agreement between automated triage evaluation and attending physician verification.
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold px-3 py-1.5 rounded-xl border dark:border-neutral-700 bg-neutral-100/50 dark:bg-neutral-900 text-neutral-400">
-                      Total Reviewed: <strong className="text-on-surface">{analytics?.concordance?.totalReviewed ?? 0} cases</strong>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-medium px-3 py-1.5 rounded-lg border dark:border-neutral-800 bg-neutral-100/50 dark:bg-neutral-900 text-neutral-400">
+                      Evaluated: <strong className="text-on-surface font-semibold">{analytics?.concordance?.totalReviewed ?? 0} cases</strong>
                     </span>
                   </div>
                 </div>
 
-                {/* KPI Metrics Trio */}
+                {/* Primary Metrics Trio */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Overall Concordance */}
-                  <div className={`p-5 rounded-2xl border ${
-                    isDark ? 'bg-gradient-to-br from-primary-container/20 to-neutral-900 border-primary/30' : 'bg-gradient-to-br from-primary/10 to-neutral-50 border-primary/30'
+                  <div className={`p-5 rounded-2xl border flex flex-col justify-between ${
+                    isDark ? 'bg-[#181818] border-neutral-800' : 'bg-neutral-50/80 border-neutral-200'
                   }`}>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-headline font-bold uppercase tracking-wider text-primary">
-                        Overall Concordance
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-primary" />
+                          <p className="text-xs font-headline font-semibold uppercase tracking-wider text-neutral-400">
+                            Concordance Rate
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-neutral-400">
+                          {analytics?.concordance?.concordantCount ?? 0} of {analytics?.concordance?.totalReviewed ?? 0} cases
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-baseline gap-1">
+                        <span className="text-3xl font-headline font-bold text-on-surface">
+                          {analytics?.concordance?.overallConcordanceRate ?? 100}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+                        Attending physician confirmed triage category without tier alteration.
                       </p>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-on-primary">
-                        {analytics?.concordance?.concordantCount ?? 0} / {analytics?.concordance?.totalReviewed ?? 0}
-                      </span>
                     </div>
-                    <p className="text-4xl font-headline font-black mt-2 text-primary">
-                      {analytics?.concordance?.overallConcordanceRate ?? 100}%
-                    </p>
-                    <p className="text-[11px] text-neutral-400 mt-2">
-                      Doctor confirmed AI triage classification without any tier modification.
-                    </p>
-                    <div className="w-full h-2 rounded-full overflow-hidden mt-3 bg-neutral-800">
+                    <div className="w-full h-1.5 rounded-full overflow-hidden mt-4 bg-neutral-200 dark:bg-neutral-800">
                       <div
                         className="bg-primary h-full transition-all duration-500 rounded-full"
                         style={{ width: `${analytics?.concordance?.overallConcordanceRate ?? 100}%` }}
@@ -544,24 +550,31 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                   </div>
 
                   {/* Doctor Escalations */}
-                  <div className={`p-5 rounded-2xl border ${
-                    isDark ? 'bg-gradient-to-br from-error-container/20 to-neutral-900 border-error/30' : 'bg-gradient-to-br from-error/10 to-neutral-50 border-error/30'
+                  <div className={`p-5 rounded-2xl border flex flex-col justify-between ${
+                    isDark ? 'bg-[#181818] border-neutral-800' : 'bg-neutral-50/80 border-neutral-200'
                   }`}>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-headline font-bold uppercase tracking-wider text-error">
-                        Doctor Escalations (🔺)
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-error" />
+                          <p className="text-xs font-headline font-semibold uppercase tracking-wider text-neutral-400">
+                            Physician Escalations
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-neutral-400">
+                          {analytics?.concordance?.escalatedCount ?? 0} cases
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-baseline gap-1">
+                        <span className="text-3xl font-headline font-bold text-on-surface">
+                          {analytics?.concordance?.escalationRate ?? 0}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+                        Physician elevated triage tier based on acute clinical presentation.
                       </p>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-error text-white">
-                        {analytics?.concordance?.escalatedCount ?? 0} cases
-                      </span>
                     </div>
-                    <p className="text-4xl font-headline font-black mt-2 text-error">
-                      {analytics?.concordance?.escalationRate ?? 0}%
-                    </p>
-                    <p className="text-[11px] text-neutral-400 mt-2">
-                      Safety catch: Doctor elevated triage tier (e.g., Yellow → Red) upon review.
-                    </p>
-                    <div className="w-full h-2 rounded-full overflow-hidden mt-3 bg-neutral-800">
+                    <div className="w-full h-1.5 rounded-full overflow-hidden mt-4 bg-neutral-200 dark:bg-neutral-800">
                       <div
                         className="bg-error h-full transition-all duration-500 rounded-full"
                         style={{ width: `${analytics?.concordance?.escalationRate ?? 0}%` }}
@@ -570,24 +583,31 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                   </div>
 
                   {/* Doctor De-escalations */}
-                  <div className={`p-5 rounded-2xl border ${
-                    isDark ? 'bg-gradient-to-br from-warning-container/20 to-neutral-900 border-warning/30' : 'bg-gradient-to-br from-warning/10 to-neutral-50 border-warning/30'
+                  <div className={`p-5 rounded-2xl border flex flex-col justify-between ${
+                    isDark ? 'bg-[#181818] border-neutral-800' : 'bg-neutral-50/80 border-neutral-200'
                   }`}>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-headline font-bold uppercase tracking-wider text-warning">
-                        Doctor De-escalations (🔻)
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-warning" />
+                          <p className="text-xs font-headline font-semibold uppercase tracking-wider text-neutral-400">
+                            Physician De-escalations
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-neutral-400">
+                          {(analytics?.concordance?.deescalatedCount ?? 0) + (analytics?.concordance?.falsePositiveCount ?? 0)} cases
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-baseline gap-1">
+                        <span className="text-3xl font-headline font-bold text-on-surface">
+                          {analytics?.concordance?.deescalationRate ?? 0}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+                        Physician lowered triage tier or determined non-urgent outpatient status.
                       </p>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-warning text-black">
-                        {(analytics?.concordance?.deescalatedCount ?? 0) + (analytics?.concordance?.falsePositiveCount ?? 0)} cases
-                      </span>
                     </div>
-                    <p className="text-4xl font-headline font-black mt-2 text-warning">
-                      {analytics?.concordance?.deescalationRate ?? 0}%
-                    </p>
-                    <p className="text-[11px] text-neutral-400 mt-2">
-                      Over-triage filter: Doctor lowered triage tier or marked as false positive.
-                    </p>
-                    <div className="w-full h-2 rounded-full overflow-hidden mt-3 bg-neutral-800">
+                    <div className="w-full h-1.5 rounded-full overflow-hidden mt-4 bg-neutral-200 dark:bg-neutral-800">
                       <div
                         className="bg-warning h-full transition-all duration-500 rounded-full"
                         style={{ width: `${analytics?.concordance?.deescalationRate ?? 0}%` }}
@@ -596,121 +616,137 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                   </div>
                 </div>
 
-                {/* Tier-Specific Precision Metrics */}
+                {/* Tier-Specific Precision Breakdown */}
                 <div className="pt-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3">
-                    Concordance Rate by Initial AI Tier
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">
+                    Agreement by Initial Triage Level
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
                       {
                         tier: 'Red Alert',
                         key: 'red',
-                        color: 'border-error/40 text-error',
+                        color: 'text-error',
+                        dotColor: 'bg-error',
                         barColor: 'bg-error',
                         data: analytics?.concordance?.tierPrecision?.red,
                       },
                       {
                         tier: 'Yellow Priority',
                         key: 'yellow',
-                        color: 'border-warning/40 text-warning',
+                        color: 'text-warning',
+                        dotColor: 'bg-warning',
                         barColor: 'bg-warning',
                         data: analytics?.concordance?.tierPrecision?.yellow,
                       },
                       {
                         tier: 'Green Routine',
                         key: 'green',
-                        color: 'border-success/40 text-success',
+                        color: 'text-success',
+                        dotColor: 'bg-success',
                         barColor: 'bg-success',
                         data: analytics?.concordance?.tierPrecision?.green,
                       },
                     ].map((t, idx) => (
-                      <div key={idx} className={`p-4 rounded-xl border ${isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className={`text-xs font-bold ${t.color}`}>{t.tier}</span>
-                          <span className="text-xs font-black font-headline">{t.data?.rate ?? 100}% agreement</span>
+                      <div key={idx} className={`p-4 rounded-xl border flex flex-col justify-between ${isDark ? 'bg-[#181818] border-neutral-800' : 'bg-neutral-50/80 border-neutral-200'}`}>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="flex items-center gap-1.5 text-xs font-semibold text-on-surface">
+                              <span className={`w-2 h-2 rounded-full ${t.dotColor}`} />
+                              {t.tier}
+                            </span>
+                            <span className="text-xs font-bold font-headline">{t.data?.rate ?? 100}%</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden mb-3">
+                            <div
+                              className={`${t.barColor} h-full transition-all duration-500 rounded-full`}
+                              style={{ width: `${t.data?.rate ?? 100}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-neutral-800 overflow-hidden mb-2">
-                          <div
-                            className={`${t.barColor} h-full transition-all duration-500`}
-                            style={{ width: `${t.data?.rate ?? 100}%` }}
-                          />
-                        </div>
-                        <div className="flex justify-between text-[10px] text-neutral-400">
-                          <span>Verified: {t.data?.verified ?? 0}</span>
-                          <span>Overridden: {t.data?.overridden ?? 0}</span>
-                          <span>Total AI: {t.data?.initialAi ?? 0}</span>
+                        <div className="flex justify-between text-[11px] text-neutral-400 pt-2 border-t dark:border-neutral-800/80">
+                          <span>Verified: <strong className="text-on-surface font-semibold">{t.data?.verified ?? 0}</strong></span>
+                          <span>Overridden: <strong className="text-on-surface font-semibold">{t.data?.overridden ?? 0}</strong></span>
+                          <span>Total: <strong className="text-on-surface font-semibold">{t.data?.initialAi ?? 0}</strong></span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Recent Clinical Overrides & Discrepancies Table */}
+                {/* Clinical Overrides & Discrepancies Table */}
                 <div className="pt-2">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-                      Recent Clinical Discrepancy & Re-classification Log
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                      Physician Reclassification Audit Trail
                     </h4>
-                    <span className="text-[11px] text-neutral-500">
-                      Audit trail of doctor adjustments
+                    <span className="text-xs text-neutral-500">
+                      Documented clinical tier adjustments
                     </span>
                   </div>
 
                   {analytics?.concordance?.recentDiscrepancies && analytics.concordance.recentDiscrepancies.length > 0 ? (
                     <div className="overflow-x-auto rounded-xl border dark:border-neutral-800">
                       <table className="w-full text-left text-xs">
-                        <thead className={`text-[11px] uppercase tracking-wider font-bold ${isDark ? 'bg-neutral-900 text-neutral-400 border-b border-neutral-800' : 'bg-neutral-100 text-neutral-600 border-b border-neutral-200'}`}>
+                        <thead className={`text-[11px] uppercase tracking-wider font-semibold ${isDark ? 'bg-[#181818] text-neutral-400 border-b border-neutral-800' : 'bg-neutral-100 text-neutral-600 border-b border-neutral-200'}`}>
                           <tr>
-                            <th className="p-3">Patient</th>
-                            <th className="p-3">AI Output</th>
-                            <th className="p-3">Doctor Classification</th>
-                            <th className="p-3">Shift Type</th>
-                            <th className="p-3">Attending Staff</th>
-                            <th className="p-3">Clinical Note / Reason</th>
+                            <th className="p-3.5">Patient</th>
+                            <th className="p-3.5">Initial Triage</th>
+                            <th className="p-3.5">Physician Classification</th>
+                            <th className="p-3.5">Adjustment</th>
+                            <th className="p-3.5">Attending Staff</th>
+                            <th className="p-3.5">Clinical Rationale</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y dark:divide-neutral-800">
                           {analytics.concordance.recentDiscrepancies.map((disc, idx) => (
-                            <tr key={idx} className={isDark ? 'hover:bg-neutral-900/60' : 'hover:bg-neutral-50'}>
-                              <td className="p-3 font-semibold text-on-surface">
+                            <tr key={idx} className={isDark ? 'hover:bg-neutral-900/40' : 'hover:bg-neutral-50'}>
+                              <td className="p-3.5 font-semibold text-on-surface">
                                 {disc.patientName}
-                                <span className="block text-[10px] text-neutral-400 font-normal">{disc.patientPhone}</span>
+                                <span className="block text-[11px] text-neutral-500 font-normal font-mono">{disc.patientPhone}</span>
                               </td>
-                              <td className="p-3">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                  disc.aiCategory === 'red' ? 'bg-error/20 text-error' : disc.aiCategory === 'yellow' ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'
+                              <td className="p-3.5">
+                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                  disc.aiCategory === 'red' ? 'bg-error/15 text-error border border-error/25' : disc.aiCategory === 'yellow' ? 'bg-warning/15 text-warning border border-warning/25' : 'bg-success/15 text-success border border-success/25'
                                 }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${disc.aiCategory === 'red' ? 'bg-error' : disc.aiCategory === 'yellow' ? 'bg-warning' : 'bg-success'}`} />
                                   {disc.aiCategory}
                                 </span>
                               </td>
-                              <td className="p-3">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                  disc.doctorCategory === 'red' ? 'bg-error/20 text-error' : disc.doctorCategory === 'yellow' ? 'bg-warning/20 text-warning' : disc.doctorCategory === 'green' ? 'bg-success/20 text-success' : 'bg-neutral-700 text-neutral-300'
+                              <td className="p-3.5">
+                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                  disc.doctorCategory === 'red' ? 'bg-error/15 text-error border border-error/25' : disc.doctorCategory === 'yellow' ? 'bg-warning/15 text-warning border border-warning/25' : disc.doctorCategory === 'green' ? 'bg-success/15 text-success border border-success/25' : 'bg-neutral-800 text-neutral-300 border border-neutral-700'
                                 }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${disc.doctorCategory === 'red' ? 'bg-error' : disc.doctorCategory === 'yellow' ? 'bg-warning' : disc.doctorCategory === 'green' ? 'bg-success' : 'bg-neutral-400'}`} />
                                   {disc.doctorCategory}
                                 </span>
                               </td>
-                              <td className="p-3 font-bold">
+                              <td className="p-3.5 font-medium">
                                 {disc.type === 'ESCALATED' ? (
-                                  <span className="text-error flex items-center gap-1">
-                                    <span>🔺</span> Escalated
+                                  <span className="text-error inline-flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                                    </svg>
+                                    Escalated
                                   </span>
                                 ) : disc.type === 'DE-ESCALATED' ? (
-                                  <span className="text-warning flex items-center gap-1">
-                                    <span>🔻</span> De-escalated
+                                  <span className="text-warning inline-flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                    De-escalated
                                   </span>
                                 ) : (
-                                  <span className="text-neutral-400 flex items-center gap-1">
-                                    <span>✖</span> False Positive
+                                  <span className="text-neutral-400 inline-flex items-center gap-1">
+                                    False Positive
                                   </span>
                                 )}
                               </td>
-                              <td className="p-3 font-medium text-neutral-300">
+                              <td className="p-3.5 text-neutral-300 font-medium">
                                 {disc.doctorName}
                               </td>
-                              <td className="p-3 text-neutral-400 max-w-xs truncate" title={disc.comment}>
-                                {disc.comment}
+                              <td className="p-3.5 text-neutral-400 max-w-xs truncate" title={disc.comment}>
+                                {disc.comment || '—'}
                               </td>
                             </tr>
                           ))}
@@ -719,9 +755,9 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                     </div>
                   ) : (
                     <div className={`p-6 rounded-xl border text-center text-xs text-neutral-400 ${
-                      isDark ? 'bg-neutral-900/40 border-neutral-800' : 'bg-neutral-50 border-neutral-200'
+                      isDark ? 'bg-[#181818] border-neutral-800' : 'bg-neutral-50 border-neutral-200'
                     }`}>
-                      No clinical discrepancies logged yet. All reviewed cases are currently 100% concordant with AI triage output.
+                      No clinical discrepancies logged yet. All evaluated cases currently match automated triage output.
                     </div>
                   )}
                 </div>

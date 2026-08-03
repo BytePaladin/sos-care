@@ -796,52 +796,48 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
               {/* Medical actions and controls panel */}
               <div className={`w-full lg:w-80 shrink-0 p-6 flex flex-col gap-6 overflow-y-auto scrollbar-thin ${isDark ? 'bg-[#161616]' : 'bg-[#f8f9fa]'}`}>
                 {/* Triage Category & Interactive Clinical Severity Override */}
-                <div className={`p-4 rounded-2xl border ${
-                  selectedPatient.category === 'red' 
-                    ? 'border-error/30 bg-error/5' 
-                    : selectedPatient.category === 'yellow' 
-                    ? 'border-warning/30 bg-warning/5' 
-                    : 'border-success/30 bg-success/5'
-                }`}>
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-headline font-bold text-xs uppercase tracking-wider text-neutral-400">
+                    <h3 className="font-headline font-bold text-sm text-on-surface">
                       Triage Category
                     </h3>
                     {/* Provenance Badge */}
                     {selectedPatient.doctorOverride?.isOverridden ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
-                        <span>👨‍⚕️</span> Overridden
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary border border-primary/25 shrink-0">
+                        Physician Override
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-800 text-neutral-300 border border-neutral-700">
-                        <span>🤖</span> AI Output
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-neutral-800 text-neutral-300 border border-neutral-700 shrink-0">
+                        Automated Triage
                       </span>
                     )}
                   </div>
 
-                  {/* Current Active Category Pill */}
-                  <div className="mt-2.5 flex items-center justify-between">
+                  {/* Current Active Category Display */}
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <span className={`w-3.5 h-3.5 rounded-full shrink-0 ${
+                      <span className={`w-3 h-3 rounded-full shrink-0 ${
                         selectedPatient.category === 'red' ? 'bg-error animate-pulse-red' : selectedPatient.category === 'yellow' ? 'bg-warning' : 'bg-success'
                       }`} />
-                      <span className="font-headline font-black uppercase text-sm tracking-wide">
+                      <span className="font-headline font-bold uppercase text-xs tracking-wider">
                         {selectedPatient.category} Priority
                       </span>
                     </div>
 
                     {selectedPatient.doctorOverride?.isOverridden && (
-                      <span className="text-[10px] text-neutral-400">
-                        Initial: <span className="font-semibold uppercase">{selectedPatient.initialCategory || 'green'}</span>
+                      <span className="text-[11px] text-neutral-400">
+                        Initial: <span className="font-semibold uppercase text-neutral-300">{selectedPatient.initialCategory || 'green'}</span>
                       </span>
                     )}
                   </div>
 
                   {/* Doctor Override Details if active */}
-                  {selectedPatient.doctorOverride?.isOverridden && selectedPatient.doctorOverride?.overriddenByName && (
-                    <div className="mt-2 pt-2 border-t dark:border-neutral-800/60 text-[11px] text-neutral-400 space-y-0.5">
+                  {selectedPatient.doctorOverride?.isOverridden && (
+                    <div className={`p-2.5 rounded-xl border text-[11px] text-neutral-400 space-y-0.5 ${
+                      isDark ? 'bg-[#181818] border-neutral-800' : 'bg-neutral-100 border-neutral-200'
+                    }`}>
                       <p>
-                        By <span className="font-semibold text-on-surface">{selectedPatient.doctorOverride.overriddenByName}</span>
+                        By <span className="font-semibold text-on-surface">{selectedPatient.doctorOverride.overriddenByName || 'Physician'}</span>
                         {selectedPatient.doctorOverride.overriddenAt && (
                           <span> • {new Date(selectedPatient.doctorOverride.overriddenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         )}
@@ -853,13 +849,17 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                   )}
 
                   {/* Interactive Severity Override Action Controls */}
-                  <div className="mt-4 pt-3 border-t dark:border-neutral-800">
-                    <p className="text-[11px] font-bold text-neutral-400 mb-2 flex items-center justify-between">
-                      <span>Clinical Severity Override</span>
-                      <span className="text-[10px] font-normal text-neutral-500">Escalate / De-escalate</span>
-                    </p>
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                        Clinical Override
+                      </span>
+                      <span className="text-[10px] text-neutral-500">
+                        Adjust Priority
+                      </span>
+                    </div>
 
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-3 gap-2">
                       {/* Red Button */}
                       <button
                         type="button"
@@ -868,7 +868,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                           setPendingNewCategory('red');
                         }}
                         disabled={isOverridingCategory || selectedPatient.category === 'red'}
-                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-0.5 cursor-pointer disabled:cursor-default ${
+                        className={`h-12 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:cursor-default ${
                           selectedPatient.category === 'red'
                             ? 'bg-error text-white shadow-sm ring-2 ring-error/40 opacity-95'
                             : pendingNewCategory === 'red'
@@ -877,12 +877,12 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                         }`}
                         title="Escalate to Red Alert"
                       >
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-error inline-block" />
+                        <span className="flex items-center gap-1.5 leading-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-error inline-block shrink-0" />
                           Red
                         </span>
-                        <span className="text-[9px] font-medium opacity-80">
-                          {selectedPatient.category === 'red' ? 'Active' : '🔺 Escalate'}
+                        <span className="text-[9px] font-medium opacity-80 leading-none">
+                          {selectedPatient.category === 'red' ? 'Current' : 'Escalate'}
                         </span>
                       </button>
 
@@ -894,7 +894,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                           setPendingNewCategory('yellow');
                         }}
                         disabled={isOverridingCategory || selectedPatient.category === 'yellow'}
-                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-0.5 cursor-pointer disabled:cursor-default ${
+                        className={`h-12 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:cursor-default ${
                           selectedPatient.category === 'yellow'
                             ? 'bg-warning text-black shadow-sm ring-2 ring-warning/40 opacity-95'
                             : pendingNewCategory === 'yellow'
@@ -903,16 +903,16 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                         }`}
                         title="Change to Yellow Priority"
                       >
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-warning inline-block" />
+                        <span className="flex items-center gap-1.5 leading-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-warning inline-block shrink-0" />
                           Yellow
                         </span>
-                        <span className="text-[9px] font-medium opacity-80">
+                        <span className="text-[9px] font-medium opacity-80 leading-none">
                           {selectedPatient.category === 'yellow'
-                            ? 'Active'
+                            ? 'Current'
                             : selectedPatient.category === 'green'
-                            ? '🔺 Escalate'
-                            : '🔻 De-escalate'}
+                            ? 'Escalate'
+                            : 'De-escalate'}
                         </span>
                       </button>
 
@@ -924,7 +924,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                           setPendingNewCategory('green');
                         }}
                         disabled={isOverridingCategory || selectedPatient.category === 'green'}
-                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-0.5 cursor-pointer disabled:cursor-default ${
+                        className={`h-12 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:cursor-default ${
                           selectedPatient.category === 'green'
                             ? 'bg-success text-white shadow-sm ring-2 ring-success/40 opacity-95'
                             : pendingNewCategory === 'green'
@@ -933,12 +933,12 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                         }`}
                         title="De-escalate to Green Routine"
                       >
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-success inline-block" />
+                        <span className="flex items-center gap-1.5 leading-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-success inline-block shrink-0" />
                           Green
                         </span>
-                        <span className="text-[9px] font-medium opacity-80">
-                          {selectedPatient.category === 'green' ? 'Active' : '🔻 De-escalate'}
+                        <span className="text-[9px] font-medium opacity-80 leading-none">
+                          {selectedPatient.category === 'green' ? 'Current' : 'De-escalate'}
                         </span>
                       </button>
                     </div>
@@ -946,14 +946,11 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                     {/* Quick Confirmation Prompt when a new tier is selected */}
                     {pendingNewCategory && pendingNewCategory !== selectedPatient.category && (
                       <div className={`mt-3 p-3 rounded-xl border animate-fade-in ${
-                        isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-neutral-200'
+                        isDark ? 'bg-[#181818] border-neutral-700' : 'bg-white border-neutral-200'
                       }`}>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-on-surface">
-                            {['red', 'yellow'].indexOf(pendingNewCategory) > ['red', 'yellow'].indexOf(selectedPatient.category) || (selectedPatient.category === 'green' && pendingNewCategory !== 'green')
-                              ? '🔺 Escalate'
-                              : '🔻 De-escalate'}{' '}
-                            to <span className="uppercase font-black">{pendingNewCategory}</span>?
+                          <span className="text-xs font-semibold text-on-surface">
+                            Reclassify priority to <span className="uppercase font-bold">{pendingNewCategory}</span>?
                           </span>
                           <button
                             type="button"
@@ -961,7 +958,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                               setPendingNewCategory(null);
                               setOverrideReason('');
                             }}
-                            className="text-neutral-400 hover:text-on-surface text-xs"
+                            className="text-neutral-400 hover:text-on-surface text-xs p-1"
                           >
                             ✕
                           </button>
@@ -971,7 +968,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                           type="text"
                           value={overrideReason}
                           onChange={(e) => setOverrideReason(e.target.value)}
-                          placeholder="Optional clinical rationale / notes..."
+                          placeholder="Clinical rationale or notes (optional)..."
                           className={`w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2.5 outline-none focus:ring-1 focus:ring-primary ${
                             isDark ? 'bg-[#121212] border-neutral-700 text-white' : 'bg-neutral-50 border-neutral-300 text-neutral-900'
                           }`}
@@ -986,7 +983,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                               pendingNewCategory === 'red' ? 'bg-error hover:bg-error/90' : pendingNewCategory === 'yellow' ? 'bg-warning text-black hover:bg-warning/90' : 'bg-success hover:bg-success/90'
                             }`}
                           >
-                            {isOverridingCategory ? 'Saving...' : 'Confirm Re-classification'}
+                            {isOverridingCategory ? 'Saving...' : 'Confirm Reclassification'}
                           </button>
                           <button
                             type="button"
