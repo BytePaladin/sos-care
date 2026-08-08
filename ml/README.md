@@ -8,20 +8,29 @@ It classifies a patient's free-text symptom message as **GREEN** (routine), **YE
 
 ```
 ml/
-├── data/dataset_v1.csv, dataset_v2.csv   # self-constructed labeled corpora (text,label)
+├── data/
+│   ├── dataset_v1..v3.csv  # self-constructed corpora (text,label,template)
+│   │                       # v3 is bilingual: English + Bangla
+│   └── heldout_eval.csv    # hand-written messages, never used for training
 ├── training/
-│   ├── build_dataset.py   # regenerates a dataset version from clinical templates
-│   └── train.py           # compares LogReg vs Linear SVM, saves the winner
-├── models/                # severity_model.joblib (gitignored) + metrics.json
-│                          # + metrics_v1.json / metrics_v2.json (per-version archive)
-│                          # + VALIDATION.md (v1 vs v2 error analysis and comparison)
-├── preprocess.py          # shared text cleaning (baked into the model)
-├── safety_net.py          # rule-based critical-phrase override
-├── predict.py             # hybrid decision: model + safety net -> finalLabel
-├── app.py                 # Flask service: /health, /predict
-├── tests/test_safety_net.py   # pins the safety net's behavior
-├── compare_versions.py    # v1 vs v2 before/after comparison (demo)
-├── DEMO_SCRIPT.md         # scripted messages for the progress demo/recording
+│   ├── build_dataset.py    # regenerates a dataset version from clinical templates
+│   └── train.py            # 70/30 split BY TEMPLATE, compares LogReg vs Linear SVM
+├── models/                 # severity_model.joblib (gitignored) + metrics.json
+│                           # + metrics_v1..v3.json (per-version archive)
+│                           # + VALIDATION.md (protocol, results and limitations)
+├── preprocess.py           # shared text cleaning (baked into the model)
+├── safety_net.py           # rule-based critical-phrase override (EN + BN)
+├── predict.py              # hybrid decision + per-term explanation
+├── app.py                  # Flask service: /health, /predict
+├── tests/
+│   ├── test_safety_net.py         # pins the safety net's behaviour
+│   ├── test_safety_net_parity.py  # Python and JS safety nets must agree
+│   └── safety_net_corpus.json     # the shared corpus both are pinned to
+├── show_metrics.py         # print saved accuracy figures (no retraining)
+├── evaluate.py             # score the model on the hand-written set
+├── compare_versions.py     # v1 vs v2 before/after comparison (demo)
+├── try_it.py               # interactive CLI; type 'metrics' for the numbers
+├── DEMO_SCRIPT.md          # scripted walkthrough for the progress demo
 └── requirements.txt
 ```
 
@@ -56,6 +65,12 @@ python app.py
 
 # 5. Show the v1 -> v2 before/after comparison (retrains v1 in memory)
 python compare_versions.py
+
+# 6. Print the saved accuracy figures instantly (no retraining)
+python show_metrics.py
+
+# 7. Check the model on hand-written messages it has never seen
+python evaluate.py
 ```
 
 See [models/VALIDATION.md](models/VALIDATION.md) for the v1 → v2 error analysis,
@@ -102,4 +117,16 @@ in the proposal's clinical symptom-to-severity mapping and National Kidney
 Foundation guidance on AKI/CKD warning signs. They are illustrative patient
 phrasings, **not** real patient data. `build_dataset.py` verifies that no
 GREEN/YELLOW message contains a safety-net phrase, so the two layers never
-contradict each other. Dataset v2 (Week 5) expands this set from error analysis.
+contradict each other. Dataset v2 expanded the set from error analysis; **v3 adds
+Bangla**, since patients at a Bangladeshi kidney hospital write in Bangla and an
+English-only model cannot triage them.
+
+## A note on the accuracy figures
+
+Because the messages are template-generated, a random train/test split would put
+near-duplicates on both sides and inflate the score — earlier versions of this
+project reported ~100% for exactly that reason. All evaluation is therefore split
+**by template**, so the reported accuracy (82.7%) measures generalisation to
+unseen phrasings rather than memorisation. See
+[models/VALIDATION.md](models/VALIDATION.md) §3 for the full explanation and the
+size of the gap.

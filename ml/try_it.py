@@ -29,7 +29,10 @@ def format_result(text, result):
 def main():
     print("Loading model...")
     predict.load_model()
-    print("Ready. Type a patient message and press Enter (type 'quit' to stop).\n")
+    print(f"Model trained on: {predict.model_version()}")
+    print("Ready. Type a patient message and press Enter.")
+    print("  'metrics' -> show the model's accuracy figures")
+    print("  'quit'    -> stop\n")
 
     while True:
         try:
@@ -43,6 +46,12 @@ def main():
         if text.lower() in ("quit", "exit"):
             print("Bye.")
             break
+        if text.lower() in ("metrics", "accuracy", "stats"):
+            # Delegated rather than duplicated, so there is one source of truth
+            # for what the numbers are and how they are formatted.
+            import show_metrics
+            show_metrics.main([])
+            continue
 
         result = predict.predict_label(text)
         print(format_result(text, result))
