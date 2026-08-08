@@ -6,7 +6,18 @@
  *   final = RED  , if safety-net keyword hits
  *   final = ML label , in all other cases
  *
- * That is, even if the ML model fails, explicitly dangerous messages will never be downgraded.
+ * That is, even if the ML model fails, explicitly dangerous messages will
+ * never be downgraded.
+ *
+ * ⚠ This function must stay deterministic. The same message must always
+ * produce the same decision. A random or time-dependent classification here
+ * silently disables the safety net for every patient, because the keyword
+ * layer is bypassed along with everything else — and it also makes the stored
+ * audit trail untrue, since ruleOverride and matchedKeywords would no longer
+ * describe what actually happened.
+ *
+ * `npm run selftest` asserts this: it classifies the same message repeatedly
+ * and fails if the answers differ.
  * --------------------------------------------------------------------------
  */
 
@@ -22,18 +33,22 @@ import { SEVERITY } from '../utils/severity.js'; // severity constant
 export const evaluateMessage = async (text) => {
   const cleanText = String(text || '').trim(); // make input safe
 
-  // TEMPORARY: User requested random classification regardless of msg
-  const labels = [SEVERITY.GREEN, SEVERITY.YELLOW, SEVERITY.RED];
-  const randomLabel = labels[Math.floor(Math.random() * labels.length)];
-  const isRed = randomLabel === SEVERITY.RED;
+  // Both paths run together, mirroring the parallel design in Figure 2
+  const [mlResult, safetyResult] = await Promise.all([
+    classifyMessage(cleanText), // path 1: ML classifier (or its fallback)
+    Promise.resolve(runSafetyNet(cleanText)), // path 2: deterministic rule engine
+  ]);
+
+  // The override rule: a critical keyword forces RED regardless of the model
+  const finalLabel = safetyResult.triggered ? SEVERITY.RED : mlResult.label;
 
   return {
-    mlLabel: randomLabel, 
-    confidence: Number(Math.random().toFixed(2)), 
-    modelSource: 'fallback-heuristic', // MUST use valid enum value
-    ruleOverride: isRed, 
-    matchedKeywords: isRed ? ['RANDOM_RED_TEST'] : [], 
-    finalLabel: randomLabel, 
+    mlLabel: mlResult.label, // what the classifier said, kept for audit
+    confidence: mlResult.confidence, // how sure the classifier was
+    modelSource: mlResult.source, // ml-service or fallback-heuristic
+    ruleOverride: safetyResult.triggered, // did the safety net fire
+    matchedKeywords: safetyResult.matchedKeywords, // which rules matched
+    finalLabel, // the label the queue is ordered by
   };
 };
 

@@ -49,6 +49,45 @@ const run = async () => {
     console.log(`       "${testCase.text}"\n`); // Original message
   }
 
+  // ── Week 6: determinism guard ──
+  // The triage decision must depend only on the message. If evaluateMessage
+  // ever becomes random or time-dependent, the safety net is bypassed for
+  // every patient and the stored audit trail stops describing what actually
+  // happened — while the dashboard still looks plausible, because the colours
+  // vary. That failure is invisible in a demo, so it is asserted here.
+  const probe = 'I have not passed any urine since yesterday';
+  const firstRun = await evaluateMessage(probe);
+  const repeats = await Promise.all([
+    evaluateMessage(probe),
+    evaluateMessage(probe),
+    evaluateMessage(probe),
+    evaluateMessage(probe),
+  ]);
+
+  const stable = repeats.every(
+    (r) => r.finalLabel === firstRun.finalLabel && r.ruleOverride === firstRun.ruleOverride
+  );
+
+  if (stable) {
+    passed += 1;
+    console.log('PASS | determinism: the same message always gives the same decision');
+  } else {
+    failed += 1;
+    console.log('FAIL | determinism: identical messages produced different decisions');
+    console.log('       evaluateMessage() is not deterministic — the safety net is being bypassed.');
+    console.log(`       got: ${[firstRun, ...repeats].map((r) => r.finalLabel).join(', ')}`);
+  }
+
+  // The safety net must be the thing that escalates, not the classifier alone
+  const netCheck = runSafetyNet(probe);
+  if (netCheck.triggered && firstRun.ruleOverride) {
+    passed += 1;
+    console.log('PASS | audit trail: ruleOverride agrees with the rule engine\n');
+  } else {
+    failed += 1;
+    console.log(`FAIL | audit trail: rule engine says ${netCheck.triggered}, decision says ${firstRun.ruleOverride}\n`);
+  }
+
   // Small check for helpers
   console.assert(normalizeSeverity('RED ') === 'red', 'normalizeSeverity failed'); // case/space handling
   console.assert(higherSeverity('green', 'red') === 'red', 'higherSeverity failed'); // priority handling
