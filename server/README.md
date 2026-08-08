@@ -27,11 +27,23 @@ npm run seed              # optional: load demo users + triage records
 npm run dev               # starts on http://localhost:5000
 ```
 
-Run the triage logic test without a database:
+Run the logic tests without a database:
 
 ```bash
-npm run selftest
+npm run selftest         # triage pipeline — 8 clinical cases + determinism guard
+npm run selftest:queue   # pagination, priority ordering, rate limiting
 ```
+
+Work with the ML service (Week 6):
+
+```bash
+npm run mock:ml          # start a mock ML service on port 5001
+npm run check:ml         # check whatever is at ML_SERVICE_URL against the contract
+```
+
+The mock implements `docs/ML_SERVICE_CONTRACT.md`, so the success path of the
+ML integration can be tested before the Flask service exists. `check:ml` works
+against the mock or the real service without knowing which.
 
 ## 3. Severity pipeline (Proposal §8, Figure 2)
 
@@ -95,6 +107,25 @@ Protected routes need `Authorization: Bearer <token>`.
 | POST | `/patients/:id/notes` | Add a clinical note |
 | GET | `/patients/:id/actions` | Staff audit trail for one patient |
 
+`GET /patients` also accepts `?page=` and `?limit=` (Week 5). Pagination is
+opt-in: without `?page=` the endpoint returns a bare array exactly as before,
+so nothing that already consumes it breaks. With `?page=` it returns
+`{ data, meta }`. Page totals are always available in the `X-Total-Count`,
+`X-Page`, `X-Page-Size` and `X-Total-Pages` response headers.
+
+### Notifications — `/api/notifications` *(all routes: staff only)*
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/` | My alerts — `?unread=true`, `?page=`, `?limit=` |
+| GET | `/unread-count` | Badge counts: `{ unread, urgentUnread }` |
+| PUT | `/read-all` | Mark all of my alerts read |
+| PUT | `/:id/read` | Mark one alert read |
+
+A Red case raises one notification per staff member, so each person keeps
+their own read state. Repeated Red messages in the same session do not create
+duplicates while an unread alert for that case already exists.
+
 `GET /patients` accepts optional filters:
 `?severity=red|yellow|green`, `?status=pending|contacted|false_positive|needs_review`,
 `?search=<name or phone>`, `?since=<ISO date>`, `?limit=<n>` (max 500).
@@ -132,6 +163,10 @@ See `.env.example`. `.env` is git-ignored and must never be committed.
 | `JWT_SECRET` | dev fallback | **must** be set outside development |
 | `ML_SERVICE_URL` | `http://127.0.0.1:5001` | Flask microservice |
 | `ML_TIMEOUT_MS` | `4000` | Falls back to heuristic after this |
+| `ML_RETRY_ATTEMPTS` | `1` | Retries on a transient ML failure |
+| `ML_BREAKER_THRESHOLD` | `5` | Consecutive failures before the breaker opens |
+| `ML_BREAKER_COOLDOWN_MS` | `30000` | How long the breaker stays open |
+| `RATE_LIMIT_DISABLED` | unset | Set to `true` to switch off login rate limiting |
 
 ## 7. Status
 
@@ -141,6 +176,17 @@ hybrid triage pipeline, safety-net layer, ML client with graceful fallback, audi
 route protection and ownership checks, request validation, centralised error handling,
 self-test script, API documentation.
 
-Remaining (Weeks 4–7):
+Completed in Week 5:
+staff notification collection with per-recipient read state, opt-in pagination on
+the patient queue, database-level priority ordering, and rate limiting on the
+authentication endpoints.
+
+Completed in Week 6:
+frozen ML service contract (`docs/ML_SERVICE_CONTRACT.md`), a mock ML service so
+the integration path can be tested before the Flask model exists, a contract
+compliance checker, and a hardened ML client with response validation, retry and
+a circuit breaker.
+
+Remaining:
 notification collection and staff alerting, pagination on the queue, integration with the real
 Flask model once trained, rate limiting, deployment configuration.
