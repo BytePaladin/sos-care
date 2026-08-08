@@ -45,7 +45,7 @@ def predict_route():
         return jsonify({
             "label": result["mlLabel"].lower(),
             "confidence": result["confidence"],
-            "model_version": "dataset_v2",
+            "model_version": predict.model_version(),
             "mlLabel": result["mlLabel"],
             "ruleOverride": result["ruleOverride"],
             "finalLabel": result["finalLabel"],

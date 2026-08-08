@@ -57,6 +57,98 @@ TIMES = [
 # Polite openers for routine (GREEN) messages.
 GREENERS = ["", "Hi, ", "Hello, ", "Quick question - ", "Good morning, ", "Please, "]
 
+# ── Bengali (added in v3) ──────────────────────────────────────────────────
+# Patients at a Bangladeshi kidney hospital write in Bengali. The safety net
+# gained Bengali rules in Week 5, but the classifier had never seen the script,
+# so any Bengali message without an explicit critical phrase was being labelled
+# on essentially no evidence. These templates give the model real Bengali to
+# learn from.
+#
+# Bengali is verb-final, so the time expression goes at the FRONT of the
+# sentence rather than the end -- hence "{t} " prefixed templates below rather
+# than the " {t}" suffix used for English.
+BN_CONTEXTS = [
+    "",
+    "আমার কিডনি রোগ আছে, ",
+    "আমি ডায়ালাইসিস নিচ্ছি, ",
+    "কিডনি রোগী হিসেবে বলছি, ",
+    "আমার কিডনির কার্যক্ষমতা কমে গেছে, ",
+]
+
+BN_TIMES = [
+    "",
+    "গতকাল থেকে ",
+    "আজ সকাল থেকে ",
+    "দুই দিন ধরে ",
+    "কাল রাত থেকে ",
+    "কয়েকদিন ধরে ",
+]
+
+BN_GREENERS = ["", "আসসালামু আলাইকুম, ", "একটা প্রশ্ন ছিল - ", "দয়া করে জানাবেন, "]
+
+BN_RED = [
+    "{t}প্রস্রাব হচ্ছে না",
+    "{t}প্রস্রাব একদম বন্ধ হয়ে গেছে",
+    "{t}প্রস্রাব করতে পারছি না",
+    "{t}শ্বাস নিতে খুব কষ্ট হচ্ছে",
+    "{t}শ্বাসকষ্ট হচ্ছে",
+    "{t}দম বন্ধ হয়ে আসছে",
+    "{t}বুকে ব্যথা করছে",
+    "{t}বুকে চাপ লাগছে",
+    "{t}প্রস্রাবে রক্ত যাচ্ছে",
+    "{t}প্রস্রাবের সাথে রক্ত যাচ্ছে",
+    "{t}রক্ত বমি হচ্ছে",
+    "{t}আমি জ্ঞান হারিয়ে ফেলেছিলাম",
+    "{t}অজ্ঞান হয়ে গিয়েছিলাম",
+    "{t}খিঁচুনি হয়েছে",
+    "{t}হঠাৎ তীব্র মাথাব্যথা শুরু হয়েছে",
+    "এটা আমার জীবনের সবচেয়ে তীব্র মাথাব্যথা",
+]
+
+BN_YELLOW = [
+    "{t}পা ফুলে যাচ্ছে",
+    "{t}পা ও গোড়ালি ফুলে আছে",
+    "{t}মুখ ফুলে গেছে",
+    "{t}খুব দুর্বল লাগছে",
+    "{t}খুব ক্লান্ত লাগছে",
+    "{t}বমি বমি ভাব লাগছে",
+    "{t}খেতে ইচ্ছে করছে না",
+    "{t}প্রস্রাব কম হচ্ছে",
+    "{t}আগের চেয়ে কম প্রস্রাব হচ্ছে",
+    "{t}প্রস্রাবে ফেনা হচ্ছে",
+    "{t}সারা শরীর চুলকাচ্ছে",
+    "{t}হালকা মাথাব্যথা করছে",
+    "{t}কিডনির জায়গায় হালকা ব্যথা",
+    "{t}কোমরে ব্যথা করছে",
+    "{t}হালকা জ্বর এসেছে",
+    "{t}পায়ে খিল ধরছে",
+    "{t}মাথা ঘোরাচ্ছে",
+    "{t}মুখে ধাতব স্বাদ লাগছে",
+    "{t}রক্তচাপ স্বাভাবিকের চেয়ে বেশি",
+    "{t}পেটে হালকা ব্যথা",
+]
+
+BN_GREEN = [
+    "কলা খেতে পারব কি?",
+    "ভাত কতটুকু খাওয়া যাবে?",
+    "দিনে কতটুকু লবণ খাওয়া নিরাপদ?",
+    "দিনে কতটুকু পানি খাব?",
+    "পরের সপ্তাহে অ্যাপয়েন্টমেন্ট পরিবর্তন করতে চাই",
+    "আমার রিপোর্ট কি চলে এসেছে?",
+    "ডায়ালাইসিসের সময় কখন?",
+    "ওষুধ খাওয়ার নিয়ম কী?",
+    "ওষুধ কি খাবারের আগে না পরে খাব?",
+    "পরের ভিজিট কবে?",
+    "ক্লিনিক কি শুক্রবার খোলা থাকে?",
+    "রক্ত পরীক্ষার আগে কি খালি পেটে থাকতে হবে?",
+    "আমি কি বিমানে ভ্রমণ করতে পারব?",
+    "ব্যায়াম করা কি আমার জন্য নিরাপদ?",
+    "প্রেসক্রিপশনের একটি কপি পাঠাতে পারবেন?",
+    "বিল কি অনলাইনে দেওয়া যাবে?",
+    "গত ভিজিটে সাহায্যের জন্য ধন্যবাদ",
+    "টমেটো খাওয়া যাবে কি?",
+]
+
 # --- RED: explicitly dangerous. Many contain a safety-net phrase (the layer and
 #     the classifier then agree); {t} is a time expression. ---
 RED_CORE = [
@@ -206,22 +298,24 @@ def _fill(template: str, ctx: str, t: str) -> str:
     return text.strip()
 
 
-def _gen_symptom(templates, contexts, times):
-    out = set()
+def _gen_symptom(templates, contexts, times, lang="en"):
+    """Expand symptom templates. Returns {message: template} so every row can be
+    traced back to the template that produced it -- see `build` for why."""
+    out = {}
     for tpl in templates:
         for ctx in contexts:
             times_iter = times if "{t}" in tpl else [""]
             for t in times_iter:
-                out.add(_fill(tpl, ctx, t))
+                out.setdefault(_fill(tpl, ctx, t), f"{lang}:{tpl}")
     return out
 
 
-def _gen_green(templates, openers):
-    out = set()
+def _gen_green(templates, openers, lang="en"):
+    out = {}
     for tpl in templates:
         for op in openers:
             text = (op + tpl) if op else (tpl[0].upper() + tpl[1:])
-            out.add(text.strip())
+            out.setdefault(text.strip(), f"{lang}:{tpl}")
     return out
 
 
@@ -231,6 +325,12 @@ def build(out_path, target_per_class):
     red = _gen_symptom(RED_CORE + RED_SUBTLE, CONTEXTS, TIMES)
     yellow = _gen_symptom(YELLOW, CONTEXTS, TIMES)
     green = _gen_green(GREEN, GREENERS)
+
+    # Bengali pools (v3). Merged into the same tiers so the model learns one
+    # bilingual decision boundary rather than needing language detection first.
+    red.update(_gen_symptom(BN_RED, BN_CONTEXTS, BN_TIMES, lang="bn"))
+    yellow.update(_gen_symptom(BN_YELLOW, BN_CONTEXTS, BN_TIMES, lang="bn"))
+    green.update(_gen_green(BN_GREEN, BN_GREENERS, lang="bn"))
 
     # Integrity: no GREEN/YELLOW message may contain a safety-net critical phrase.
     for label, pool in (("YELLOW", yellow), ("GREEN", green)):
@@ -246,11 +346,13 @@ def build(out_path, target_per_class):
 
     rows = []
     for label, pool in (("RED", red), ("YELLOW", yellow), ("GREEN", green)):
-        items = sorted(pool)
+        items = sorted(pool)  # pool is {message: template}
         rng.shuffle(items)
         chosen = items[:target_per_class]
-        rows.extend((m, label) for m in chosen)
-        print(f"{label:6}: pool={len(pool):4d}  used={len(chosen)}")
+        rows.extend((m, label, pool[m]) for m in chosen)
+        n_bn = sum(1 for m in chosen if pool[m].startswith("bn:"))
+        print(f"{label:6}: pool={len(pool):4d}  used={len(chosen):4d}  "
+              f"(bengali {n_bn}, english {len(chosen) - n_bn})")
 
     print(f"RED messages without a safety-net phrase (classifier must learn): "
           f"{red_no_trigger}/{len(red)}")
@@ -259,10 +361,16 @@ def build(out_path, target_per_class):
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["text", "label"])
+        # `template` is written so evaluation can group by it. Every row from one
+        # template is a near-duplicate of its siblings (same sentence, different
+        # context prefix or time phrase), so a random train/test split leaks:
+        # the model sees a variant in training and is then tested on its twin.
+        # Grouping by template is what makes the reported score honest.
+        w.writerow(["text", "label", "template"])
         w.writerows(rows)
 
-    print(f"\nWrote {len(rows)} rows to {out_path}")
+    n_templates = len({r[2] for r in rows})
+    print(f"\nWrote {len(rows)} rows ({n_templates} distinct templates) to {out_path}")
 
 
 if __name__ == "__main__":

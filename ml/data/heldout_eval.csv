@@ -1,0 +1,57 @@
+text,label,note
+"Hi doc my pee has completely stopped since morning",RED,anuria phrased colloquially
+"no wee at all today and my belly feels tight",RED,anuria + slang
+"i cant seem to pass water since last night",RED,anuria euphemism
+"feels like i cant get enough air in",RED,dyspnoea paraphrase
+"breathing feels really laboured when i lie down",RED,orthopnoea
+"theres a heavy weight sitting on my chest",RED,chest pain paraphrase
+"my chest feels crushed and it goes to my left arm",RED,cardiac pattern
+"there is red colour coming out when i urinate",RED,haematuria paraphrase
+"passing something dark red in my water",RED,haematuria euphemism
+"i blacked out in the bathroom this morning",RED,syncope
+"my husband said i was shaking uncontrollably and unresponsive",RED,seizure third person
+"i threw up something that looked like coffee grounds",RED,haematemesis clinical sign
+"the headache came on like a thunderclap and its the worst ever",RED,thunderclap
+"i am drowsy and cannot be woken properly my family says",RED,altered consciousness
+"my whole body has swelled up and i cannot lie flat to sleep",RED,fluid overload
+"i have been vomiting for two days and cannot keep water down",RED,severe dehydration risk
+"my legs have puffed up a bit over the week",YELLOW,oedema mild
+"i keep feeling washed out and have no energy",YELLOW,fatigue paraphrase
+"feeling sick in the stomach and off my food",YELLOW,nausea/anorexia
+"going to the toilet less than i normally would",YELLOW,reduced output non critical
+"my wee looks bubbly in the pan",YELLOW,proteinuria colloquial
+"skin is itching all over especially at night",YELLOW,uraemic pruritus
+"got a dull ache round my back where the kidneys are",YELLOW,flank pain
+"blood pressure readings have crept up this week",YELLOW,hypertension trend
+"i get cramps in my calves most nights",YELLOW,cramps
+"slight temperature since yesterday nothing major",YELLOW,low grade fever
+"tastes like metal in my mouth lately",YELLOW,dysgeusia
+"my eyes look puffy when i wake up",YELLOW,periorbital oedema
+"mild headache on and off today",YELLOW,benign headache
+"a bit of tummy discomfort after meals",YELLOW,mild abdominal
+"am i allowed mangoes with my potassium levels",GREEN,diet query
+"could you move my appointment to thursday please",GREEN,scheduling
+"how many glasses of water should i be having",GREEN,fluid advice
+"do i need to stop eating before the blood test",GREEN,pre test instruction
+"is the clinic open on saturday morning",GREEN,admin
+"can my son collect my tablets for me",GREEN,admin
+"where do i park when i come in",GREEN,admin
+"thanks very much for looking after me last week",GREEN,courtesy
+"can i get a letter for my employer",GREEN,admin
+"should the phosphate tablet be taken with food",GREEN,medication timing
+"সকাল থেকে একদম প্রস্রাব হচ্ছে না",RED,bengali anuria
+"বুকে প্রচণ্ড ব্যথা করছে",RED,bengali chest pain
+"শ্বাস নিতে খুব কষ্ট হচ্ছে",RED,bengali dyspnoea
+"প্রস্রাবের সাথে রক্ত যাচ্ছে",RED,bengali haematuria
+"রাতে হঠাৎ খিঁচুনি হয়েছিল",RED,bengali seizure
+"হঠাৎ করে জীবনের সবচেয়ে তীব্র মাথাব্যথা শুরু হয়েছে",RED,bengali thunderclap
+"দুই দিন ধরে পা অনেক ফুলে আছে",YELLOW,bengali oedema
+"শরীর খুব দুর্বল লাগছে আর ক্লান্ত",YELLOW,bengali fatigue
+"আগের চেয়ে প্রস্রাব কম হচ্ছে",YELLOW,bengali reduced output
+"সারা শরীরে চুলকানি হচ্ছে",YELLOW,bengali pruritus
+"হালকা জ্বর আছে গতকাল থেকে",YELLOW,bengali low fever
+"পিঠে কিডনির দিকে চিনচিনে ব্যথা",YELLOW,bengali flank pain
+"আমি কি আম খেতে পারব",GREEN,bengali diet
+"পরের সপ্তাহের অ্যাপয়েন্টমেন্ট পেছানো যাবে কি",GREEN,bengali scheduling
+"রিপোর্ট কবে পাব",GREEN,bengali admin
+"ওষুধটা কি খাবারের পরে খেতে হবে",GREEN,bengali medication timing

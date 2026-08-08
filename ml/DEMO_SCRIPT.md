@@ -61,6 +61,70 @@ python -c "import json; d=json.load(open('models/metrics_v2.json')); r=d['result
 
 Full write-up with metrics tables: [models/VALIDATION.md](models/VALIDATION.md).
 
+## 3b. Week 5 — safety-net parity and Bengali
+
+**Parity.** The project has two safety nets: `ml/safety_net.py` (Python, used by
+the ML tools) and `server/services/safetyNet.js` (JavaScript, the one that
+actually runs in the app). They had drifted: the thunderclap-headache rule from
+Week 3 existed only in Python, so **the fix was never live in the running
+system**. Both are now pinned to one shared corpus.
+
+```bash
+cd ml && python -m pytest tests/test_safety_net_parity.py -q
+```
+
+[Say: "the test runs the same messages through both implementations and fails if
+they disagree. When I first ran it, it found three real gaps — the backend
+missed 'struggling to breathe' and 'the bleeding won't stop', and my Python
+layer missed 'cannot urinate'. All three are fixed and can't silently come back."]
+
+**Bengali.** Neither layer understood Bengali before this week. Show it live in
+the app (§4) with:
+
+| Message | Expected |
+|---|---|
+| `বুকে ব্যথা করছে` (chest pain) | RED + safety-net override |
+| `গতকাল থেকে প্রস্রাব হচ্ছে না` (no urine since yesterday) | RED + override |
+| `দুই দিন ধরে পা ফুলে আছে` (legs swollen two days) | YELLOW |
+| `আমি কি কলা খেতে পারব` (can I eat bananas) | GREEN |
+
+## 3c. Week 6 — honest evaluation (the most important part)
+
+```bash
+cd ml && python training/train.py --data dataset_v3.csv
+```
+
+Point at three things in the output:
+
+1. **`170 distinct templates` for 1124 messages.** Each template makes ~6.6
+   near-identical messages.
+2. **The 70/30 split is by template**, so no sentence and its near-twin land on
+   opposite sides.
+3. **The leakage line at the end:** a random split reports **0.993** accuracy;
+   the honest grouped split reports **0.827**.
+
+[Say: "our earlier 100% accuracy was not real. The data is template-generated,
+so a random split trains on one variant of a sentence and tests on its twin —
+the model was being scored on things it had memorised. Splitting by template
+instead drops accuracy to 83%, and that is the number I trust."]
+
+Then the strictest test — 56 messages written by hand in unfamiliar phrasing:
+
+```bash
+python evaluate.py
+```
+
+[Say: "on phrasing the model has genuinely never seen, accuracy is 73% and it
+misses seven urgent messages — things like 'my pee has completely stopped' and
+'a heavy weight sitting on my chest'. The safety net misses them too, because it
+matches keywords and the patient didn't use the expected words. That's a real
+limitation and it's written up in VALIDATION.md, along with why I did *not* just
+add those seven phrases to the rules — that would be tuning to the test set."]
+
+**The number that defends the architecture:** on the held-out test set the model
+alone catches 79% of urgent messages; with the safety net the system catches
+**98.7%**. The rule layer rescued 31 of the 33 the model missed.
+
 ## 4. Full-stack end-to-end demo (the main event)
 
 Start all three services per the root [README](../README.md), then open

@@ -9,6 +9,7 @@ This is the hybrid labeling logic in one place:
 Flask service (app.py) and the CLI below call `predict_label`.
 """
 
+import json
 import os
 import sys
 
@@ -36,6 +37,22 @@ def load_model(path: str = MODEL_PATH):
 
 def is_model_loaded() -> bool:
     return _model is not None
+
+
+def model_version() -> str:
+    """Which dataset the deployed model was trained on.
+
+    Read from models/metrics.json (written by training/train.py) rather than
+    hardcoded, so it cannot drift out of date after a retrain. Reported in the
+    /predict response and echoed into backend logs, which makes it possible to
+    tell which model produced a stored triage decision.
+    """
+    metrics_path = os.path.join(_HERE, "models", "metrics.json")
+    try:
+        with open(metrics_path, encoding="utf-8") as f:
+            return str(json.load(f).get("dataset", "unknown"))
+    except (OSError, ValueError):
+        return "unknown"
 
 
 def predict_label(text: str) -> dict:

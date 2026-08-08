@@ -19,7 +19,10 @@ import re
 # unambiguously life-threatening phrases are added and marked below.
 _CRITICAL_PATTERNS = [
     # --- Anuria / no urine output ---
+    # "cannot urinate" was added in Week 5 -- the parity test found the backend
+    # caught it and this layer did not.
     ("no_urine", r"\bno urine\b|\bno pee\b|can'?t (?:pass|make) (?:urine|water)|"
+                 r"cannot (?:pass|urinate)|"
                  r"haven'?t (?:passed|made) (?:any )?(?:urine|water)|"
                  r"not (?:passed|passing) (?:any )?urine|haven'?t urinated|"
                  r"unable to (?:pass|pee)"),
@@ -60,6 +63,22 @@ _CRITICAL_PATTERNS = [
     ("thunderclap_headache", r"worst headache (?:of|in) my life|"
                              r"sudden(?:ly)? severe headache|thunderclap headache|"
                              r"worst headache i'?ve ever had"),
+    # --- Bengali (Week 5) ---
+    # Patients at a Bangladeshi kidney hospital write in Bengali, and an
+    # English-only safety net would silently fail to escalate them. These
+    # mirror the English rules above; the same tags are used on the backend
+    # (server/services/safetyNet.js) and pinned by the parity test.
+    ("no_urine_bn", r"প্রস্রাব হচ্ছে না|প্রস্রাব হয়নি|প্রস্রাব বন্ধ|"
+                    r"প্রস্রাব করতে পারছি না|পেশাব হচ্ছে না"),
+    ("difficulty_breathing_bn", r"শ্বাস নিতে কষ্ট|শ্বাসকষ্ট|দম বন্ধ|"
+                                r"নিঃশ্বাস নিতে পারছি না"),
+    ("chest_pain_bn", r"বুকে ব্যথা|বুকে চাপ|বুক ব্যথা"),
+    ("bleeding_bn", r"প্রস্রাবে রক্ত|প্রস্রাবের সাথে রক্ত|রক্ত যাচ্ছে|"
+                    r"রক্ত বমি|রক্তপাত বন্ধ হচ্ছে না"),
+    ("loss_of_consciousness_bn", r"জ্ঞান হারি|অজ্ঞান|সংজ্ঞা হারি"),
+    ("seizure_bn", r"খিঁচুনি"),
+    ("thunderclap_headache_bn", r"জীবনের সবচেয়ে (?:তীব্র|খারাপ) মাথাব্যথা|"
+                                r"হঠাৎ তীব্র মাথাব্যথা"),
 ]
 
 _COMPILED = [(name, re.compile(pat)) for name, pat in _CRITICAL_PATTERNS]

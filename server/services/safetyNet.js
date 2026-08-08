@@ -28,6 +28,11 @@ const CRITICAL_RULES = [
       /\bcan(?:'|’)?t breathe\b/i, // "can't breathe"
       /\bcannot breathe\b/i, // "cannot breathe"
       /\b(?:difficulty|trouble|struggling) (?:in )?breathing\b/i, // "difficulty breathing"
+      // Week 5 (found by the parity test): the rule above only matched the
+      // "-ing breathing" form, so "struggling to breathe" slipped through.
+      /\b(?:struggling|straining|unable) to breathe\b/i, // "struggling to breathe"
+      /\bcan(?:'|’)?t catch my breath\b/i, // "can't catch my breath"
+      /\bgasping for (?:air|breath)\b/i, // "gasping for air"
       /\bshort(?:ness)? of breath\b/i, // "shortness of breath"
     ],
   },
@@ -45,7 +50,20 @@ const CRITICAL_RULES = [
       /\buncontrolled bleeding\b/i, // "uncontrolled bleeding"
       /\bbleeding (?:heavily|a lot|non ?stop)\b/i, // "bleeding heavily"
       /\bwon(?:'|’)?t stop bleeding\b/i, // "won't stop bleeding"
+      // Week 5 (found by the parity test): the reversed word order
+      // "the bleeding won't stop" was not matched by the rule above.
+      /\bbleeding (?:that )?won(?:'|’)?t stop\b/i, // "the bleeding won't stop"
+      /\bcan(?:'|’)?t stop (?:the )?bleeding\b/i, // "can't stop the bleeding"
       /\bblood (?:in|with) (?:my )?(?:urine|vomit)\b/i, // "blood in my urine"
+      // Week 5: widened to match ml/safety_net.py, which caught phrasings this
+      // rule missed — "blood is coming through my urine", "I've been peeing
+      // blood", "my urine has blood". Visible blood for a kidney patient is
+      // treated as critical regardless of how it is worded.
+      /\bblood (?:is |was )?(?:coming )?(?:through|out of|out with)\b[^.!?]{0,12}\b(?:urine|pee)\b/i,
+      /\b(?:urine|pee) (?:has|had|with|that has)\b[^.!?]{0,10}\bblood\b/i,
+      /\b(?:peeing|pissing|urinating) blood\b/i,
+      /\bcoughing up blood\b/i, // haemoptysis
+      /\b(?:vomiting|throwing up) blood\b/i, // haematemesis
     ],
   },
   {
@@ -71,6 +89,86 @@ const CRITICAL_RULES = [
       /\bseizure\b/i, // "seizure"
       /\bconvulsion\b/i, // "convulsion"
       /\bhaving a fit\b/i, // "having a fit"
+    ],
+  },
+  {
+    // Added in Week 5 to match ml/safety_net.py, which gained this rule during
+    // Week 3 error analysis: the classifier labelled "sudden severe headache,
+    // the worst one of my life" as GREEN. A thunderclap headache is a red flag
+    // for subarachnoid haemorrhage or hypertensive emergency, so it is escalated
+    // deterministically rather than left to the model.
+    // Note the deliberate narrowness: a plain "headache" is a Yellow-level
+    // symptom and must NOT trigger here, or the queue fills with false REDs.
+    tag: 'THUNDERCLAP_HEADACHE',
+    patterns: [
+      /\bworst headache (?:of|in) my life\b/i, // "worst headache of my life"
+      /\bworst headache i(?:'|’)?ve ever had\b/i, // "worst headache I've ever had"
+      /\bsudden(?:ly)? severe headache\b/i, // "sudden severe headache"
+      /\bthunderclap headache\b/i, // the clinical term
+    ],
+  },
+
+  // ── Bengali rules (Week 5) ──────────────────────────────────────────────
+  // Patients at a Bangladeshi kidney hospital write in Bengali. An
+  // English-only safety net would silently fail to escalate them, which is
+  // exactly the failure this layer exists to prevent. These mirror the English
+  // rules above and are pinned against ml/safety_net.py by the parity test
+  // (ml/tests/test_safety_net_parity.py). Note: \b word boundaries do not work
+  // on Bengali script, so these patterns match without them.
+  {
+    tag: 'ANURIA_BN',
+    patterns: [
+      /প্রস্রাব হচ্ছে না/, // "no urine is coming"
+      /প্রস্রাব হয়নি/, // "urine has not happened"
+      /প্রস্রাব বন্ধ/, // "urine stopped"
+      /প্রস্রাব করতে পারছি না/, // "cannot pass urine"
+      /পেশাব হচ্ছে না/, // colloquial variant
+    ],
+  },
+  {
+    tag: 'BREATHING_BN',
+    patterns: [
+      /শ্বাস নিতে কষ্ট/, // "difficulty breathing"
+      /শ্বাসকষ্ট/, // "breathlessness"
+      /দম বন্ধ/, // "can't breathe"
+      /নিঃশ্বাস নিতে পারছি না/, // "cannot take a breath"
+    ],
+  },
+  {
+    tag: 'CHEST_PAIN_BN',
+    patterns: [
+      /বুকে ব্যথা/, // "chest pain"
+      /বুকে চাপ/, // "chest pressure"
+      /বুক ব্যথা/, // variant spacing
+    ],
+  },
+  {
+    tag: 'BLEEDING_BN',
+    patterns: [
+      /প্রস্রাবে রক্ত/, // "blood in urine"
+      /প্রস্রাবের সাথে রক্ত/, // "blood with urine"
+      /রক্ত যাচ্ছে/, // "blood is passing"
+      /রক্ত বমি/, // "vomiting blood"
+      /রক্তপাত বন্ধ হচ্ছে না/, // "bleeding won't stop"
+    ],
+  },
+  {
+    tag: 'LOSS_OF_CONSCIOUSNESS_BN',
+    patterns: [
+      /জ্ঞান হারি/, // "lost consciousness"
+      /অজ্ঞান/, // "unconscious"
+      /সংজ্ঞা হারি/, // formal variant
+    ],
+  },
+  {
+    tag: 'SEIZURE_BN',
+    patterns: [/খিঁচুনি/], // "seizure/convulsion"
+  },
+  {
+    tag: 'THUNDERCLAP_HEADACHE_BN',
+    patterns: [
+      /জীবনের সবচেয়ে (?:তীব্র|খারাপ) মাথাব্যথা/, // "worst headache of my life"
+      /হঠাৎ তীব্র মাথাব্যথা/, // "sudden severe headache"
     ],
   },
 ];
