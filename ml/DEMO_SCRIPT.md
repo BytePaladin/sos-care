@@ -61,76 +61,116 @@ python -c "import json; d=json.load(open('models/metrics_v2.json')); r=d['result
 
 Full write-up with metrics tables: [models/VALIDATION.md](models/VALIDATION.md).
 
-## 3b. Week 5 — safety-net parity and Bengali
+## Week 5 — Building the Bangla language model
 
-**Parity.** The project has two safety nets: `ml/safety_net.py` (Python, used by
-the ML tools) and `server/services/safetyNet.js` (JavaScript, the one that
-actually runs in the app). They had drifted: the thunderclap-headache rule from
-Week 3 existed only in Python, so **the fix was never live in the running
-system**. Both are now pinned to one shared corpus.
+**The problem.** Patients at a Bangladeshi kidney hospital write in Bangla. The
+model had only ever seen English, and neither safety layer recognised a single
+Bangla word. A patient typing "বুকে ব্যথা করছে" (chest pain) got no useful triage.
 
-```bash
-cd ml && python -m pytest tests/test_safety_net_parity.py -q
-```
+**What was built:**
 
-[Say: "the test runs the same messages through both implementations and fails if
-they disagree. When I first ran it, it found three real gaps — the backend
-missed 'struggling to breathe' and 'the bleeding won't stop', and my Python
-layer missed 'cannot urinate'. All three are fixed and can't silently come back."]
-
-**Bengali.** Neither layer understood Bengali before this week. Show it live in
-the app (§4) with:
-
-| Message | Expected |
-|---|---|
-| `বুকে ব্যথা করছে` (chest pain) | RED + safety-net override |
-| `গতকাল থেকে প্রস্রাব হচ্ছে না` (no urine since yesterday) | RED + override |
-| `দুই দিন ধরে পা ফুলে আছে` (legs swollen two days) | YELLOW |
-| `আমি কি কলা খেতে পারব` (can I eat bananas) | GREEN |
-
-## 3c. Week 6 — honest evaluation (the most important part)
+1. **Bangla training data.** Bangla templates were written across all three
+   tiers -- urgent (anuria, breathlessness, chest pain, bleeding, seizure),
+   watch-level (swelling, weakness, reduced urine, itching, fever) and routine
+   (diet, appointments, medicine timing). Bangla is verb-final, so the time
+   expression sits at the front of the sentence rather than the end, and the
+   templates are built that way rather than translated word for word.
+2. **Bangla safety-net rules.** 7 new deterministic rules, in *both* the Python
+   and JavaScript layers, so an explicit Bangla emergency escalates even if the
+   model is wrong or offline.
+3. **Retrained the model** as dataset v3 -- one bilingual model rather than two,
+   so no language detection step is needed before classification.
 
 ```bash
-cd ml && python training/train.py --data dataset_v3.csv
+cd ml
+python training/build_dataset.py --version 3 --target-per-class 400
+python training/train.py --data dataset_v3.csv
 ```
 
-Point at three things in the output:
+[Say: "the dataset went from 772 English messages to 1124 bilingual ones. I did
+not train a separate Bangla model -- the character n-gram features let one model
+learn both scripts, so there is no language-detection step that could fail."]
 
-1. **`170 distinct templates` for 1124 messages.** Each template makes ~6.6
-   near-identical messages.
-2. **The 70/30 split is by template**, so no sentence and its near-twin land on
-   opposite sides.
-3. **The leakage line at the end:** a random split reports **0.993** accuracy;
-   the honest grouped split reports **0.827**.
-
-[Say: "our earlier 100% accuracy was not real. The data is template-generated,
-so a random split trains on one variant of a sentence and tests on its twin —
-the model was being scored on things it had memorised. Splitting by template
-instead drops accuracy to 83%, and that is the number I trust."]
-
-Then the strictest test — 56 messages written by hand in unfamiliar phrasing:
+**Prove it works, standalone:**
 
 ```bash
-python evaluate.py
+python try_it.py
 ```
 
-[Say: "on phrasing the model has genuinely never seen, accuracy is 73% and it
-misses seven urgent messages — things like 'my pee has completely stopped' and
-'a heavy weight sitting on my chest'. The safety net misses them too, because it
-matches keywords and the patient didn't use the expected words. That's a real
-limitation and it's written up in VALIDATION.md, along with why I did *not* just
-add those seven phrases to the rules — that would be tuning to the test set."]
+| Message | Meaning | Expected |
+|---|---|---|
+| `বুকে ব্যথা করছে` | chest pain | RED + safety net |
+| `গতকাল থেকে প্রস্রাব হচ্ছে না` | no urine since yesterday | RED + safety net |
+| `দুই দিন ধরে পা ফুলে আছে` | legs swollen two days | YELLOW |
+| `আমি কি কলা খেতে পারব` | can I eat bananas | GREEN |
 
-**The number that defends the architecture:** on the held-out test set the model
-alone catches 79% of urgent messages; with the safety net the system catches
-**98.7%**. The rule layer rescued 31 of the 33 the model missed.
+**And prove the two safety nets agree** -- the Bangla rules exist twice, in
+Python and in JavaScript, so a test pins them to one shared corpus:
+
+```bash
+python -m pytest tests/test_safety_net_parity.py -q
+```
+
+[Say: "this runs the same Bangla and English messages through both
+implementations and fails if they ever disagree. When I first wrote it, it
+caught three real inconsistencies."]
+
+**How the model was measured honestly.** The dataset is template-generated:
+1124 messages from only 170 templates. A random train/test split would put a
+sentence in training and its near-twin in test, so the score would be inflated.
+Everything is split by template instead:
+
+```
+random split (leaky)   : 0.993 accuracy
+grouped split (honest) : 0.827 accuracy
+```
+
+[Say: "this is why I stopped reporting 100%. Splitting by template drops it to
+83%, and that is the number I trust."]
+
+## Week 6 — Integrating the Bangla model into the system
+
+The model is only useful if a Bangla message reaches it through the real
+application. Week 6 wired it end to end and made the decision visible.
+
+**1. The ML service now declares a version and an explanation.** `/predict`
+returns the label, a confidence score, the model version, and the terms that
+drove the decision -- while still satisfying the contract the backend team
+froze:
+
+```bash
+cd server && npm run check:ml     # 10 passed, 0 failed
+```
+
+**2. Bangla flows through the whole stack.** Log in as the patient, start a
+**New Chat**, and type each Bangla message from the table above. The severity
+badge appears on the reply, and the case lands in the staff queue.
+
+**3. The doctor's dashboard now explains itself.** Open a RED case and look at
+the **"Why this ranking"** panel:
+
+- a **confidence** figure
+- **🛡 Safety-net rule triggered** with the rules that fired (e.g. `breathing`,
+  `chest pain`)
+- **the terms that drove the model's decision**, as a weighted bar chart
+
+[Say: "before this, the dashboard showed a colour and asked the doctor to trust
+it. Now it shows which layer made the decision and on what evidence. For a
+medical tool that matters -- a clinician should not be asked to accept an
+unexplained label. The explanation is exact rather than approximate, because the
+classifier is linear: each term's contribution is its TF-IDF value times the
+model's weight, and those contributions add up to the decision itself."]
+
+**4. The fail-safe still holds.** Stop the ML service and send another message:
+the system degrades to YELLOW rather than failing, and Bangla emergencies are
+still escalated to RED by the safety net.
 
 ## 4. Full-stack end-to-end demo (the main event)
 
 Start all three services per the root [README](../README.md), then open
 http://localhost:5173.
 
-**As the patient** (log in `01700000000` / `password123`):
+**As the patient** (log in `01700000000` / `Demo@1234`):
 
 Send each message in its own chat (click **New Chat** between them) and point out
 the severity badge that appears on the reply:
@@ -145,7 +185,7 @@ the severity badge that appears on the reply:
 [Say: "the badge comes from the backend, not the browser — the message went to
 Express, which called the Flask classifier and ran the safety net."]
 
-**As the staff** (log out, log in `01800000000` / `password123`):
+**As the staff** (log out, log in `01800000000` / `Staff@1234`):
 
 The Clinical Triage Desk shows those four cases with REDs sorted to the top.
 Open the anuria case and show the **CLINICAL LOGS & NOTES** panel:

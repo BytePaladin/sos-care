@@ -36,6 +36,10 @@ def predict_route():
         return jsonify({"error": "Request body must include a non-empty 'text' string."}), 400
     try:
         result = predict.predict_label(text)
+        # Why the model chose this tier. Extra fields are allowed by the v1
+        # contract (the backend reads `label`/`confidence` and ignores the
+        # rest), so this is additive and cannot break the integration.
+        explanation = predict.explain_prediction(text)
         # Response shape is fixed by server/docs/ML_SERVICE_CONTRACT.md (v1):
         # `label` + `confidence`, lowercase. Per that contract the service
         # returns the *classifier's* label only -- the safety net and the final
@@ -46,6 +50,7 @@ def predict_route():
             "label": result["mlLabel"].lower(),
             "confidence": result["confidence"],
             "model_version": predict.model_version(),
+            "topFeatures": explanation,
             "mlLabel": result["mlLabel"],
             "ruleOverride": result["ruleOverride"],
             "finalLabel": result["finalLabel"],

@@ -47,6 +47,15 @@ const patientTriageSchema = new mongoose.Schema(
       symptomTags: [{ type: String }],
       confidenceScore: { type: Number, default: 0 },
       riskFactors: [{ type: String }],
+      // Which terms pushed the classifier towards this tier, strongest first.
+      // Kept so the dashboard can explain a ranking instead of asserting it.
+      modelEvidence: [
+        {
+          _id: false,
+          term: { type: String },
+          weight: { type: Number },
+        },
+      ],
     },
 
     // Original AI Assigned Category before doctor override

@@ -121,7 +121,17 @@ export const validateMlResponse = (data) => {
   const rawConfidence = Number(data.confidence);
   const confidence = Number.isFinite(rawConfidence) ? Math.min(Math.max(rawConfidence, 0), 1) : 0;
 
-  return { ok: true, label, confidence };
+  // Optional explanation: the terms that pushed the message towards this tier.
+  // Purely additive — the contract does not require it, and a service that
+  // omits it behaves exactly as before.
+  const topFeatures = Array.isArray(data.topFeatures)
+    ? data.topFeatures
+        .filter((f) => f && typeof f.term === 'string' && Number.isFinite(Number(f.weight)))
+        .slice(0, 8)
+        .map((f) => ({ term: f.term, weight: Number(f.weight) }))
+    : [];
+
+  return { ok: true, label, confidence, topFeatures };
 };
 
 /**
@@ -160,6 +170,7 @@ const fallbackHeuristic = (text) => {
   return {
     label,
     confidence: 0.35, // low confidence — this is not the real ML model
+    topFeatures: [], // the heuristic has no model weights to explain
     source: 'fallback-heuristic',
   };
 };
@@ -202,6 +213,7 @@ const attemptPredict = async (text) => {
   return {
     label: validated.label,
     confidence: validated.confidence,
+    topFeatures: validated.topFeatures,
     source: 'ml-service',
   };
 };

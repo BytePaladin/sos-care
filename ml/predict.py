@@ -55,6 +55,49 @@ def model_version() -> str:
         return "unknown"
 
 
+def explain_prediction(text: str, top_n: int = 5) -> list:
+    """Which words pushed this message towards its predicted tier.
+
+    The classifier is linear (TF-IDF -> logistic regression), so a term's
+    contribution to a class score is simply its TF-IDF value multiplied by that
+    class's coefficient. Summing those products *is* the decision, which means
+    this is a faithful explanation rather than an approximation of one.
+
+    Only the word/bigram half of the feature union is reported. The pipeline
+    also uses character n-grams -- they make the model robust to misspellings
+    but "hes", "est" and "st " are meaningless to a clinician reading a queue.
+
+    Returns [{"term": str, "weight": float}, ...], strongest first. Empty if the
+    model type does not expose coefficients.
+    """
+    model = load_model()
+    clf = model.named_steps["clf"]
+    if not hasattr(clf, "coef_"):
+        return []
+
+    features = model.named_steps["features"]
+    word_vec = dict(features.transformer_list)["word"]
+
+    # The FeatureUnion concatenates word features first, then char features, so
+    # the word block is the leading slice of every coefficient row.
+    word_names = word_vec.get_feature_names_out()
+    n_word = len(word_names)
+
+    predicted = str(model.predict([text])[0])
+    classes = list(clf.classes_)
+    row = clf.coef_[classes.index(predicted)] if len(classes) > 2 else clf.coef_[0]
+
+    tfidf = word_vec.transform([text])
+    contributions = []
+    for idx, value in zip(tfidf.indices, tfidf.data):
+        weight = float(value * row[idx])
+        if weight > 0:  # only what argued FOR the predicted tier
+            contributions.append({"term": str(word_names[idx]), "weight": weight})
+
+    contributions.sort(key=lambda c: c["weight"], reverse=True)
+    return contributions[:top_n]
+
+
 def predict_label(text: str) -> dict:
     """Return the hybrid severity decision for one message.
 
