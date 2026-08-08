@@ -11,6 +11,7 @@ import { PatientTriage } from '../models/PatientTriage.js'; // triage record mod
 import { asyncHandler } from '../utils/asyncHandler.js'; // try/catch wrapper
 import { SEVERITY } from '../utils/severity.js'; // severity constant
 import { evaluateMessage, buildPatientReply, buildAiAnalysis } from '../services/triageEngine.js'; // hybrid engine
+import { notifyRedCase } from '../services/notificationService.js'; // Week 5: staff alert on Red
 
 /**
  * POST /api/chats
@@ -137,6 +138,21 @@ export const sendMessage = asyncHandler(async (req, res) => {
     }
 
     await triage.save(); // using save() instead of findByIdAndUpdate to trigger hook
+
+    // ── Week 5: raise a staff alert when the case is urgent ──
+    // Previously a Red case was only noticed if someone happened to be
+    // watching the dashboard. Now the backend records the alert, so it
+    // survives a refresh and each staff member keeps their own read state.
+    // Awaited (not fired and forgotten) so the alert is guaranteed to exist
+    // before the patient is told their case was escalated; the service
+    // swallows its own errors, so this cannot fail the message.
+    if (nextLabel === SEVERITY.RED) {
+      await notifyRedCase({
+        triage, // for _id and patientName
+        matchedKeywords: decision.matchedKeywords, // which rules fired
+        ruleOverride: decision.ruleOverride, // safety-net or classifier
+      });
+    }
   }
 
   await session.save(); // save chat session

@@ -1,7 +1,10 @@
 /**
  * index.js — S.O.S. Care API server entry point
- * Week 3 update: request logger, 404 handler, centralised error handler,
- * added health check and initial environment validation.
+ * Week 3: request logger, 404 handler, centralised error handler,
+ * health check and initial environment validation.
+ * Week 5: notification routes mounted; health check now reports whether
+ * rate limiting is active.
+ * Week 6: health check also reports the ML circuit-breaker state.
  */
 
 import express from 'express'; // web framework
@@ -15,8 +18,9 @@ import authRoutes from './routes/authRoutes.js'; // /api/auth
 import triageRoutes from './routes/triageRoutes.js'; // /api/triage
 import chatRoutes from './routes/chatRoutes.js'; // /api/chats
 import adminRoutes from './routes/adminRoutes.js'; // /api/admin
+import notificationRoutes from './routes/notificationRoutes.js'; // /api/notifications (Week 5)
 import { notFound, errorHandler } from './middleware/errorHandler.js'; // error middleware
-import { pingMlService } from './services/mlClient.js'; // check if ML service is alive
+import { pingMlService, getMlBreakerState } from './services/mlClient.js'; // check if ML service is alive
 import { getSafetyNetRuleTags } from './services/safetyNet.js'; // how many rules exist
 
 const __filename = fileURLToPath(import.meta.url); // current file path
@@ -67,6 +71,7 @@ app.use('/api/auth', authRoutes); // authentication
 app.use('/api/triage', triageRoutes); // staff dashboard
 app.use('/api/chats', chatRoutes); // patient screening
 app.use('/api/admin', adminRoutes); // admin panel
+app.use('/api/notifications', notificationRoutes); // Week 5: staff notification bell
 
 // ── Health check (including ML service and safety-net status) ──
 app.get('/api/health', async (req, res) => {
@@ -77,6 +82,8 @@ app.get('/api/health', async (req, res) => {
     message: 'S.O.S. Care API Server running', // legacy frontend checks this key
     mlService: mlAlive ? 'online' : 'offline (fallback heuristic active)', // ML status
     safetyNetRules: getSafetyNetRuleTags().length, // active critical rules count
+    rateLimiting: process.env.RATE_LIMIT_DISABLED === 'true' ? 'disabled' : 'active', // Week 5
+    mlBreaker: getMlBreakerState(), // Week 6: is the ML circuit breaker open
     timestamp: new Date().toISOString(), // time
   });
 });
