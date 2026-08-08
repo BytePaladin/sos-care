@@ -25,24 +25,41 @@ watch, and urgent messages."]
 [Say: "this is the deterministic layer — even if the classifier were wrong,
 this phrase alone forces RED. That's the guarantee spec.md §11 requires."]
 
-## 3. This week's finding — dataset v2 / error analysis
+## 3. The ML finding — before vs after, side by side (the Week 3 demo)
 
-Show the *before* state was a real gap, then the *after* fix:
+One command reconstructs the old model from `dataset_v1.csv` and runs the same
+messages through both versions:
 
-| Message | v1 (before) | v2 (now, after this week's work) |
-|---|---|---|
-| `sudden severe headache, worst one of my life` | GREEN (model missed it, safety net didn't cover it) | **RED** — now caught by a new safety-net pattern (`thunderclap_headache`) |
-| `my urine smells strange` | RED (spurious) | **YELLOW** (correct) |
-| `i have a headache` / `i am feeling high headache` / `i am feeling very high headache` | flipped GREEN/YELLOW/YELLOW across near-identical phrasings | stable **YELLOW** across all three |
+```bash
+cd ml
+python compare_versions.py
+```
 
-[Say: "we probed the live model with phrasings the training data never
-covered and found a genuine safety gap — a thunderclap headache, a classic
-stroke/hemorrhage red flag, was coming back GREEN. We traced it to zero
-headache templates in the dataset, fixed it two ways: added a safety-net
-pattern so it's caught deterministically, and expanded the dataset (v1 → v2,
-630 → 772 rows) so the classifier itself learns the symptom. See
-[models/VALIDATION.md](models/VALIDATION.md) for the full before/after
-metrics and the reproduction steps."]
+It prints a `v1 (before) → v2 (after)` table. The headline row:
+
+```
+GREEN  ->  RED + net     RED     sudden severe headache, worst one of my life
+```
+
+...and a summary line: **5 corrected, 0 still wrong**. The last three rows are
+controls that already worked in v1 and are unchanged — that's the evidence the
+fix didn't break anything else.
+
+[Say: "I tested the model with realistic phrasings that were not in its training
+data. It marked a thunderclap headache — a warning sign of bleeding in the brain
+— as GREEN, routine. The cause was that the training data had no headache
+examples at all, so the model had never learned the symptom. I fixed it in two
+places: a safety-net rule that forces RED without consulting the model, and new
+training examples so the model learns it too. This table is the before and
+after, and the bottom three rows prove nothing else regressed."]
+
+To show the accuracy numbers behind it:
+
+```bash
+python -c "import json; d=json.load(open('models/metrics_v2.json')); r=d['results'][d['selected_model']]; print('accuracy', round(r['accuracy'],4), '| RED recall', r['red_recall'])"
+```
+
+Full write-up with metrics tables: [models/VALIDATION.md](models/VALIDATION.md).
 
 ## 4. Full-stack end-to-end demo (the main event)
 

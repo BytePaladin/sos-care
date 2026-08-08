@@ -20,6 +20,7 @@ ml/
 ├── predict.py             # hybrid decision: model + safety net -> finalLabel
 ├── app.py                 # Flask service: /health, /predict
 ├── tests/test_safety_net.py   # pins the safety net's behavior
+├── compare_versions.py    # v1 vs v2 before/after comparison (demo)
 ├── DEMO_SCRIPT.md         # scripted messages for the progress demo/recording
 └── requirements.txt
 ```
@@ -52,6 +53,9 @@ python -m pytest -q
 
 # 4. Start the service (default port 5001)
 python app.py
+
+# 5. Show the v1 -> v2 before/after comparison (retrains v1 in memory)
+python compare_versions.py
 ```
 
 See [models/VALIDATION.md](models/VALIDATION.md) for the v1 → v2 error analysis,
