@@ -11,7 +11,10 @@
     "start": "node index.js",
     "dev": "node --watch index.js",
     "seed": "node seed.js",
-    "selftest": "node scripts/triage-selftest.js"
+    "selftest": "node scripts/triage-selftest.js",
+    "selftest:queue": "node scripts/queue-selftest.js",
+    "mock:ml": "node scripts/mock-ml-service.js",
+    "check:ml": "node scripts/ml-contract-check.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
