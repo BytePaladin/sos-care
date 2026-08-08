@@ -12,6 +12,8 @@ import { ChatSession } from '../models/ChatSession.js'; // to fetch chat history
 import { StaffAction } from '../models/StaffAction.js'; // audit trail model
 import { asyncHandler } from '../utils/asyncHandler.js'; // try/catch wrapper
 import { SEVERITY_PRIORITY, REVIEW_STATUSES, isValidSeverity } from '../utils/severity.js'; // severity helper
+import { parsePagination, buildPageMeta, setPageHeaders } from '../utils/pagination.js'; // Week 5: paging
+import { notifyOneStaff } from '../services/notificationService.js'; // Week 5: assignment alert
 
 /**
  * Formats a triage document + its chat history into frontend's expected shape.
@@ -89,39 +91,80 @@ export const getPatients = asyncHandler(async (req, res) => {
     }
   }
 
-  // how many to fetch at once — capped at max 500
-  const maxDocs = Math.min(Number(limit) || 200, 500);
+  // ── Week 5: priority ordering moved into the database ──
+  //
+  // Previously the queue was fetched with .sort({ screenedAt: -1 }).limit(200)
+  // and only then sorted by priority in JavaScript. That is correct while the
+  // collection is small, but once there are more than 200 records it silently
+  // drops cases: an older pending Red patient would fall outside the 200 most
+  // recent and never reach the array that gets priority-sorted — so the most
+  // urgent case in the system could be invisible on the dashboard.
+  //
+  // The ranks are therefore computed in an aggregation and the sort happens
+  // before any limit is applied. The pipeline returns ids only; the documents
+  // are then fetched with find().populate() so the existing response shape and
+  // the populated staff names are preserved exactly.
 
-  const patients = await PatientTriage.find(filter) // apply filter
+  const { wantsPagination, page, limit: pageLimit, skip } = parsePagination(req.query);
+
+  // Unpaginated callers keep the previous behaviour: ?limit= or 200, capped at 500
+  const legacyLimit = Math.min(Number(limit) || 200, 500);
+  const effectiveSkip = wantsPagination ? skip : 0;
+  const effectiveLimit = wantsPagination ? pageLimit : legacyLimit;
+
+  const totalItems = await PatientTriage.countDocuments(filter); // total before paging
+
+  const ordered = await PatientTriage.aggregate([
+    { $match: filter },
+    {
+      $addFields: {
+        // pending cases outrank reviewed ones
+        _pendingRank: { $cond: [{ $eq: ['$reviewStatus', 'pending'] }, 1, 0] },
+        // Red (3) → Yellow (2) → Green (1); falls back to category on old records
+        _severityRank: {
+          $switch: {
+            branches: [
+              { case: { $eq: [{ $ifNull: ['$finalLabel', '$category'] }, 'red'] }, then: 3 },
+              { case: { $eq: [{ $ifNull: ['$finalLabel', '$category'] }, 'yellow'] }, then: 2 },
+            ],
+            default: 1,
+          },
+        },
+      },
+    },
+    { $sort: { _pendingRank: -1, _severityRank: -1, screenedAt: -1 } },
+    { $skip: effectiveSkip },
+    { $limit: effectiveLimit },
+    { $project: { _id: 1 } }, // only the ids — the documents come from find()
+  ]);
+
+  const orderedIds = ordered.map((o) => o._id);
+
+  // Fetch the page's documents with their populated staff references
+  const patients = await PatientTriage.find({ _id: { $in: orderedIds } })
     .populate('reviewedBy', 'name staffRole') // reviewing staff's name
-    .populate('forwardedTo', 'name staffRole') // forwarded staff's name
-    .sort({ screenedAt: -1 }) // by time first
-    .limit(maxDocs); // apply limit
+    .populate('forwardedTo', 'name staffRole'); // forwarded staff's name
 
-  const patientIds = patients.map((p) => p._id); // their ids
-  const chatSessions = await ChatSession.find({ triageId: { $in: patientIds } }); // all chats in one query
+  // $in does not preserve order, so restore the order the pipeline produced
+  const byId = new Map(patients.map((p) => [p._id.toString(), p]));
+  const orderedPatients = orderedIds.map((id) => byId.get(id.toString())).filter(Boolean);
+
+  const chatSessions = await ChatSession.find({ triageId: { $in: orderedIds } }); // all chats in one query
 
   // Build triageId → session Map for fast lookup (previously find() was called per patient)
   const sessionMap = new Map(); // key = triageId string
   chatSessions.forEach((cs) => sessionMap.set(cs.triageId.toString(), cs)); // fill Map
 
-  const formatted = patients.map((p) => formatPatient(p, sessionMap.get(p._id.toString()))); // format
+  const formatted = orderedPatients.map((p) => formatPatient(p, sessionMap.get(p._id.toString()))); // format
 
-  // ── Priority queue sorting (Proposal: Red first) ──
-  formatted.sort((a, b) => {
-    // pending patients are always above reviewed patients
-    const aPending = a.reviewStatus === 'pending' ? 1 : 0; // 1 if pending
-    const bPending = b.reviewStatus === 'pending' ? 1 : 0; // 1 if pending
-    if (aPending !== bPending) return bPending - aPending; // pending first
+  const meta = buildPageMeta(totalItems, { page, limit: effectiveLimit });
+  setPageHeaders(res, meta); // totals are readable even without the envelope
 
-    // then by severity — Red → Yellow → Green
-    const aRank = SEVERITY_PRIORITY[a.category] || 0; // priority of a
-    const bRank = SEVERITY_PRIORITY[b.category] || 0; // priority of b
-    if (aRank !== bRank) return bRank - aRank; // higher priority first
-
-    // if all equal, newer screening first
-    return new Date(b.screenedAt) - new Date(a.screenedAt); // by time
-  });
+  // Envelope only when ?page= was sent — otherwise the array contract the
+  // dashboard already depends on is returned unchanged
+  if (wantsPagination) {
+    return res.json({ data: formatted, meta });
+  }
 
   res.json(formatted); // return as array (frontend contract unchanged)
 });
@@ -163,6 +206,21 @@ export const updatePatientStatus = asyncHandler(async (req, res) => {
     status: patient.reviewStatus, // status after action
     note: reviewComment || '', // comment
   });
+
+  // ── Week 5: if the case was forwarded, tell that colleague directly ──
+  // A broadcast would be wrong here: this is addressed to one person, and
+  // sending it to everyone would train staff to ignore the bell.
+  if (forwardedTo) {
+    await notifyOneStaff({
+      submissionId: patient._id,
+      staffId: forwardedTo,
+      notificationType: 'ASSIGNED',
+      title: `Case assigned to you: ${patient.patientName}`,
+      body: `Forwarded by ${req.user.name}${reviewComment ? ` — ${reviewComment}` : ''}`,
+      severity: patient.finalLabel || patient.category || 'yellow',
+      patientName: patient.patientName,
+    });
+  }
 
   // fetching updated record again with populate
   const updated = await PatientTriage.findById(id)
