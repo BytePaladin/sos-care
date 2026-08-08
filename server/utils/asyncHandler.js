@@ -1,10 +1,10 @@
 /**
  * asyncHandler.js
- * প্রতিটি async controller-এ বার বার try/catch লেখা এড়ানোর জন্য ছোট wrapper.
- * কোনো Promise reject হলে সেটা সরাসরি Express error middleware-এ চলে যাবে.
+ * A small wrapper to avoid writing try/catch repeatedly in every async controller.
+ * Any rejected Promise goes directly to the Express error middleware.
  */
 
-// fn = আসল controller function (req, res, next)
+// fn = original controller function (req, res, next)
 export const asyncHandler = (fn) => (req, res, next) =>
-  // Promise.resolve দিয়ে sync error গুলোকেও Promise-এ রূপান্তর করা হচ্ছে
-  Promise.resolve(fn(req, res, next)).catch(next); // error হলে next(err) কল হবে
+  // Promise.resolve converts sync errors to Promises as well
+  Promise.resolve(fn(req, res, next)).catch(next); // calls next(err) if error occurs

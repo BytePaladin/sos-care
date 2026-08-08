@@ -1,7 +1,18 @@
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const getHeaders = () => {
-  const token = localStorage.getItem('sos_token');
+  let token = sessionStorage.getItem('sos_token'); // Fallback legacy
+  
+  // Intelligent token selection based on route
+  const path = window.location.pathname;
+  if (path.startsWith('/ikh/admin')) {
+    token = sessionStorage.getItem('sos_token_admin') || token;
+  } else if (path.startsWith('/staff')) {
+    token = sessionStorage.getItem('sos_token_staff') || token;
+  } else {
+    token = sessionStorage.getItem('sos_token_patient') || token;
+  }
+
   const headers = {
     'Content-Type': 'application/json',
   };
@@ -9,6 +20,19 @@ const getHeaders = () => {
     headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
+};
+
+const handleResponse = async (res, defaultErrorMsg) => {
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || defaultErrorMsg);
+  }
+  const text = await res.text();
+  // Vercel returns HTML if the API route is missing (falling back to index.html)
+  if (text.startsWith('<')) {
+    throw new Error('API Endpoint returned HTML instead of JSON. Ensure Vercel serverless functions are configured correctly.');
+  }
+  return JSON.parse(text);
 };
 
 export const api = {
@@ -19,13 +43,11 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, password }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Login failed');
-    }
-    const data = await res.json();
+    const data = await handleResponse(res, 'Login failed');
     if (data.token) {
-      localStorage.setItem('sos_token', data.token);
+      if (data.role === 'admin') sessionStorage.setItem('sos_token_admin', data.token);
+      else if (data.role === 'staff') sessionStorage.setItem('sos_token_staff', data.token);
+      else sessionStorage.setItem('sos_token_patient', data.token);
     }
     return data;
   },
@@ -36,13 +58,11 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, phone, password }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Registration failed');
-    }
-    const data = await res.json();
+    const data = await handleResponse(res, 'Registration failed');
     if (data.token) {
-      localStorage.setItem('sos_token', data.token);
+      if (data.role === 'admin') sessionStorage.setItem('sos_token_admin', data.token);
+      else if (data.role === 'staff') sessionStorage.setItem('sos_token_staff', data.token);
+      else sessionStorage.setItem('sos_token_patient', data.token);
     }
     return data;
   },
@@ -63,6 +83,7 @@ export const api = {
   getStaffMembers: async () => {
     const res = await fetch(`${API_BASE}/auth/staff`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) return [];
     return await res.json();
@@ -72,6 +93,7 @@ export const api = {
   getPatients: async () => {
     const res = await fetch(`${API_BASE}/triage/patients`, {
       headers: getHeaders(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -89,6 +111,19 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || 'Failed to update patient status');
+    }
+    return await res.json();
+  },
+
+  updatePatientSeverity: async (id, category, reason) => {
+    const res = await fetch(`${API_BASE}/triage/patients/${id}/severity`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ category, reason }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to update triage category');
     }
     return await res.json();
   },
@@ -117,13 +152,137 @@ export const api = {
     return await res.json();
   },
 
+  getUserChats: async () => {
+    const res = await fetch(`${API_BASE}/chats/my-chats`, {
+      headers: getHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error('Failed to fetch chat history');
+    return await res.json();
+  },
+
+  getChatSession: async (sessionId) => {
+    const res = await fetch(`${API_BASE}/chats/${sessionId}`, {
+      headers: getHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error('Failed to fetch chat session');
+    return await res.json();
+  },
+
   sendChatMessage: async (sessionId, text) => {
     const res = await fetch(`${API_BASE}/chats/${sessionId}/messages`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ text }),
     });
-    if (!res.ok) throw new Error('Failed to send message');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to send message');
+    }
+    return await res.json();
+  },
+
+  // Admin Portal
+  adminLogin: async (phone, password) => {
+    const res = await fetch(`${API_BASE}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Admin authentication failed');
+    }
+    const data = await res.json();
+    if (data.token) {
+      sessionStorage.setItem('sos_token_admin', data.token);
+    }
+    return data;
+  },
+
+  createStaff: async (name, phone, password, staffRole) => {
+    const res = await fetch(`${API_BASE}/admin/staff`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ name, phone, password, staffRole }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to create staff account');
+    }
+    return await res.json();
+  },
+
+  getAllUsers: async () => {
+    const res = await fetch(`${API_BASE}/admin/users`, {
+      headers: getHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch users');
+    }
+    return await res.json();
+  },
+
+  deleteUserAccount: async (id) => {
+    const res = await fetch(`${API_BASE}/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to delete account');
+    }
+    return await res.json();
+  },
+
+  getHospitalAnalytics: async () => {
+    const res = await fetch(`${API_BASE}/admin/analytics`, {
+      headers: getHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch hospital analytics');
+    }
+    return await res.json();
+  },
+
+  getStaffAnalytics: async () => {
+    const res = await fetch(`${API_BASE}/admin/staff-analytics`, {
+      headers: getHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch staff analytics');
+    }
+    return await res.json();
+  },
+
+  getStaffActions: async () => {
+    const res = await fetch(`${API_BASE}/admin/staff-actions`, {
+      headers: getHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch staff actions audit log');
+    }
+    return await res.json();
+  },
+
+  clearAllTriageData: async () => {
+    const res = await fetch(`${API_BASE}/admin/triage/clear`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to clear triage data');
+    }
     return await res.json();
   },
 };

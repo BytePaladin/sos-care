@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../services/api';
 import { mockScreenedPatients, mockStaffUsers } from '../data/mockData';
@@ -6,61 +6,49 @@ import { mockScreenedPatients, mockStaffUsers } from '../data/mockData';
 export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
   const { isDark } = useTheme();
 
-  // Load patients and staff from localStorage or defaults
-  const [patients, setPatients] = useState(() => {
-    return JSON.parse(localStorage.getItem('sos_patients') || 'null') || mockScreenedPatients;
-  });
+  // Load patients and staff from API
+  const [patients, setPatients] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [currentUser, setCurrentUser] = useState(user);
+  
+  // Prevent polling from overwriting optimistic updates with stale data
+  const cooldownRef = useRef(false);
 
-  const [staffList, setStaffList] = useState(() => {
-    return JSON.parse(localStorage.getItem('sos_users_staff') || 'null') || mockStaffUsers;
-  });
+  const fetchBackendData = useCallback(async () => {
+    if (cooldownRef.current) return;
+    
+    try {
+      const livePatients = await api.getPatients();
+      if (Array.isArray(livePatients)) {
+        setPatients(livePatients);
+      }
+    } catch (err) {
+      console.error('Failed to fetch patients', err);
+    }
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    const savedStaffList = JSON.parse(localStorage.getItem('sos_users_staff') || 'null') || mockStaffUsers;
-    return savedStaffList.find((s) => s.id === user.id) || user;
-  });
+    try {
+      const liveStaff = await api.getStaffMembers();
+      if (Array.isArray(liveStaff)) {
+        setStaffList(liveStaff);
+        const found = liveStaff.find((s) => s.id === user.id);
+        if (found) setCurrentUser(found);
+      }
+    } catch (err) {
+      console.error('Failed to fetch staff members', err);
+    }
+  }, [user.id]);
 
-  // Fetch live data from backend API on mount & set 3s polling interval + storage listener
+  // Fetch live data from backend API on mount & set 10s polling interval
+  // We check visibilityState to prevent exhausting free-tier Serverless limits when tab is in background
   useEffect(() => {
-    const fetchBackendData = async () => {
-      try {
-        const livePatients = await api.getPatients();
-        if (Array.isArray(livePatients) && livePatients.length > 0) {
-          setPatients(livePatients);
-        }
-      } catch (err) {
-        const cached = JSON.parse(localStorage.getItem('sos_patients') || 'null');
-        if (cached && Array.isArray(cached)) {
-          setPatients(cached);
-        }
-      }
-
-      try {
-        const liveStaff = await api.getStaffMembers();
-        if (Array.isArray(liveStaff) && liveStaff.length > 0) {
-          setStaffList(liveStaff);
-        }
-      } catch (err) {
-        // Staff fallback
-      }
-    };
-
     fetchBackendData();
-    const intervalId = setInterval(fetchBackendData, 3000);
-
-    const handleStorageChange = () => {
-      const cached = JSON.parse(localStorage.getItem('sos_patients') || 'null');
-      if (cached && Array.isArray(cached)) {
-        setPatients(cached);
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchBackendData();
       }
-    };
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      clearInterval(intervalId);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+    }, 10000);
+    return () => clearInterval(intervalId);
+  }, [fetchBackendData]);
 
   // State
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -76,6 +64,11 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
   const [forwardTargetId, setForwardTargetId] = useState('');
   const [newNoteText, setNewNoteText] = useState('');
 
+  // Triage Category Escalation / De-escalation states
+  const [pendingNewCategory, setPendingNewCategory] = useState(null);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [isOverridingCategory, setIsOverridingCategory] = useState(false);
+
   // Telegram alert modal state
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
   const [tempOptIn, setTempOptIn] = useState(currentUser.telegramOptIn);
@@ -88,10 +81,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     setTempChatId(currentUser.telegramChatId || '');
   }, [currentUser]);
 
-  // Save patients back to localStorage when state changes
-  useEffect(() => {
-    localStorage.setItem('sos_patients', JSON.stringify(patients));
-  }, [patients]);
+  // Removed local storage sync for patients
 
   // Telegram alert integration for unreviewed red-flagged patients
   useEffect(() => {
@@ -155,62 +145,24 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     try {
       const updated = await api.updatePatientStatus(patientId, 'contacted', reviewComment.trim(), null);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
-      setPatients((prevPatients) =>
-        prevPatients.map((p) => {
-          if (p.id === patientId) {
-            const updatedNotes = [
-              ...(p.notes || []),
-              {
-                author: user.name,
-                text: `Contacted patient. Comment: ${reviewComment.trim()}`,
-                timestamp: new Date().toISOString(),
-              },
-            ];
-            return {
-              ...p,
-              reviewStatus: 'contacted',
-              reviewComment: reviewComment.trim(),
-              notes: updatedNotes,
-              reviewedBy: user.name,
-              reviewedAt: new Date().toISOString(),
-            };
-          }
-          return p;
-        })
-      );
+      console.error(err);
+      alert('Failed to update patient status: ' + err.message);
     }
     setReviewComment('');
   };
 
   const handleMarkFalsePositive = async (patientId) => {
     try {
-      const updated = await api.updatePatientStatus(patientId, 'false_positive', 'Marked as false positive', null);
+      const updated = await api.updatePatientStatus(patientId, 'false_positive', 'Marked as false positive/archived', null);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
-      setPatients((prevPatients) =>
-        prevPatients.map((p) => {
-          if (p.id === patientId) {
-            const updatedNotes = [
-              ...(p.notes || []),
-              {
-                author: user.name,
-                text: 'Marked patient as False Positive.',
-                timestamp: new Date().toISOString(),
-              },
-            ];
-            return {
-              ...p,
-              reviewStatus: 'false_positive',
-              reviewComment: 'False Positive',
-              notes: updatedNotes,
-              reviewedBy: user.name,
-              reviewedAt: new Date().toISOString(),
-            };
-          }
-          return p;
-        })
-      );
+      console.error(err);
+      alert('Failed to archive patient: ' + err.message);
     }
   };
 
@@ -222,30 +174,11 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     try {
       const updated = await api.updatePatientStatus(patientId, 'needs_review', `Forwarded to ${targetStaff?.name || 'Practitioner'}`, forwardTargetId);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
-      setPatients((prevPatients) =>
-        prevPatients.map((p) => {
-          if (p.id === patientId) {
-            const updatedNotes = [
-              ...(p.notes || []),
-              {
-                author: user.name,
-                text: `Forwarded patient to ${targetStaff?.name || 'Practitioner'}.`,
-                timestamp: new Date().toISOString(),
-              },
-            ];
-            return {
-              ...p,
-              reviewStatus: 'needs_review',
-              forwardedTo: forwardTargetId,
-              notes: updatedNotes,
-              reviewedBy: user.name,
-              reviewedAt: new Date().toISOString(),
-            };
-          }
-          return p;
-        })
-      );
+      console.error(err);
+      alert('Failed to forward patient: ' + err.message);
     }
     setForwardTargetId('');
   };
@@ -254,27 +187,13 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     if (!newNoteText.trim()) return;
 
     try {
-      const updatedNotes = await api.addPatientNote(patientId, newNoteText.trim());
-      setPatients((prev) =>
-        prev.map((p) => (p.id === patientId ? { ...p, notes: updatedNotes } : p))
-      );
+      const updated = await api.addPatientNote(patientId, newNoteText.trim());
+      setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
-      setPatients((prevPatients) =>
-        prevPatients.map((p) => {
-          if (p.id === patientId) {
-            const updatedNotes = [
-              ...(p.notes || []),
-              {
-                author: user.name,
-                text: newNoteText.trim(),
-                timestamp: new Date().toISOString(),
-              },
-            ];
-            return { ...p, notes: updatedNotes };
-          }
-          return p;
-        })
-      );
+      console.error(err);
+      alert('Failed to add note: ' + err.message);
     }
     setNewNoteText('');
   };
@@ -284,10 +203,30 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     try {
       const updated = await api.updatePatientStatus(patientId, 'pending', '', null);
       setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
     } catch (err) {
       setPatients((prevPatients) =>
         prevPatients.map((p) => (p.id === patientId ? { ...p, reviewStatus: 'pending', forwardedTo: null } : p))
       );
+    }
+  };
+
+  // Escalate / De-escalate Triage Category
+  const handleUpdateSeverity = async (patientId, newCategory, reason = '') => {
+    setIsOverridingCategory(true);
+    try {
+      const updated = await api.updatePatientSeverity(patientId, newCategory, reason);
+      setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
+      setPendingNewCategory(null);
+      setOverrideReason('');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update triage category: ' + err.message);
+    } finally {
+      setIsOverridingCategory(false);
     }
   };
 
@@ -861,15 +800,210 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
 
               {/* Medical actions and controls panel */}
               <div className={`w-full lg:w-80 shrink-0 p-6 flex flex-col gap-6 overflow-y-auto scrollbar-thin ${isDark ? 'bg-[#161616]' : 'bg-[#f8f9fa]'}`}>
-                <div>
-                  <h3 className="font-headline font-bold text-base">Triage Category</h3>
-                  <div className="mt-3 flex items-center gap-3">
-                    <span className={`w-4.5 h-4.5 rounded-full ${
-                      selectedPatient.category === 'red' ? 'bg-error animate-pulse-red' : selectedPatient.category === 'yellow' ? 'bg-warning' : 'bg-success'
-                    }`} />
-                    <span className="font-headline font-bold uppercase text-sm">
-                      {selectedPatient.category} priority
-                    </span>
+                {/* Triage Category & Interactive Clinical Severity Override */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-headline font-bold text-sm text-on-surface">
+                      Triage Category
+                    </h3>
+                    {/* Provenance Badge */}
+                    {selectedPatient.doctorOverride?.isOverridden ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary border border-primary/25 shrink-0">
+                        Physician Override
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-neutral-800 text-neutral-300 border border-neutral-700 shrink-0">
+                        Automated Triage
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Current Active Category Display */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className={`w-3 h-3 rounded-full shrink-0 ${
+                        selectedPatient.category === 'red' ? 'bg-error animate-pulse-red' : selectedPatient.category === 'yellow' ? 'bg-warning' : 'bg-success'
+                      }`} />
+                      <span className="font-headline font-bold uppercase text-xs tracking-wider">
+                        {selectedPatient.category} Priority
+                      </span>
+                    </div>
+
+                    {selectedPatient.doctorOverride?.isOverridden && (
+                      <span className="text-[11px] text-neutral-400">
+                        Initial: <span className="font-semibold uppercase text-neutral-300">{selectedPatient.initialCategory || 'green'}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Doctor Override Details if active */}
+                  {selectedPatient.doctorOverride?.isOverridden && (
+                    <div className={`p-2.5 rounded-xl border text-[11px] text-neutral-400 space-y-0.5 ${
+                      isDark ? 'bg-[#181818] border-neutral-800' : 'bg-neutral-100 border-neutral-200'
+                    }`}>
+                      <p>
+                        By <span className="font-semibold text-on-surface">{selectedPatient.doctorOverride.overriddenByName || 'Physician'}</span>
+                        {selectedPatient.doctorOverride.overriddenAt && (
+                          <span> • {new Date(selectedPatient.doctorOverride.overriddenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
+                      </p>
+                      {selectedPatient.doctorOverride.reason && (
+                        <p className="italic text-neutral-300">"{selectedPatient.doctorOverride.reason}"</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Interactive Severity Override Action Controls */}
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                        Clinical Override
+                      </span>
+                      <span className="text-[10px] text-neutral-500">
+                        Adjust Priority
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Red Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedPatient.category === 'red') return;
+                          setPendingNewCategory('red');
+                        }}
+                        disabled={isOverridingCategory || selectedPatient.category === 'red'}
+                        className={`h-12 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:cursor-default ${
+                          selectedPatient.category === 'red'
+                            ? 'bg-error text-white shadow-sm ring-2 ring-error/40 opacity-95'
+                            : pendingNewCategory === 'red'
+                            ? 'bg-error/20 border-2 border-error text-error font-extrabold'
+                            : 'border border-error/30 hover:bg-error/15 text-error/90 hover:text-error'
+                        }`}
+                        title="Escalate to Red Alert"
+                      >
+                        <span className="flex items-center gap-1.5 leading-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-error inline-block shrink-0" />
+                          Red
+                        </span>
+                        <span className="text-[9px] font-medium opacity-80 leading-none">
+                          {selectedPatient.category === 'red' ? 'Current' : 'Escalate'}
+                        </span>
+                      </button>
+
+                      {/* Yellow Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedPatient.category === 'yellow') return;
+                          setPendingNewCategory('yellow');
+                        }}
+                        disabled={isOverridingCategory || selectedPatient.category === 'yellow'}
+                        className={`h-12 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:cursor-default ${
+                          selectedPatient.category === 'yellow'
+                            ? 'bg-warning text-black shadow-sm ring-2 ring-warning/40 opacity-95'
+                            : pendingNewCategory === 'yellow'
+                            ? 'bg-warning/20 border-2 border-warning text-warning font-extrabold'
+                            : 'border border-warning/30 hover:bg-warning/15 text-warning/90 hover:text-warning'
+                        }`}
+                        title="Change to Yellow Priority"
+                      >
+                        <span className="flex items-center gap-1.5 leading-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-warning inline-block shrink-0" />
+                          Yellow
+                        </span>
+                        <span className="text-[9px] font-medium opacity-80 leading-none">
+                          {selectedPatient.category === 'yellow'
+                            ? 'Current'
+                            : selectedPatient.category === 'green'
+                            ? 'Escalate'
+                            : 'De-escalate'}
+                        </span>
+                      </button>
+
+                      {/* Green Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedPatient.category === 'green') return;
+                          setPendingNewCategory('green');
+                        }}
+                        disabled={isOverridingCategory || selectedPatient.category === 'green'}
+                        className={`h-12 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:cursor-default ${
+                          selectedPatient.category === 'green'
+                            ? 'bg-success text-white shadow-sm ring-2 ring-success/40 opacity-95'
+                            : pendingNewCategory === 'green'
+                            ? 'bg-success/20 border-2 border-success text-success font-extrabold'
+                            : 'border border-success/30 hover:bg-success/15 text-success/90 hover:text-success'
+                        }`}
+                        title="De-escalate to Green Routine"
+                      >
+                        <span className="flex items-center gap-1.5 leading-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-success inline-block shrink-0" />
+                          Green
+                        </span>
+                        <span className="text-[9px] font-medium opacity-80 leading-none">
+                          {selectedPatient.category === 'green' ? 'Current' : 'De-escalate'}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Quick Confirmation Prompt when a new tier is selected */}
+                    {pendingNewCategory && pendingNewCategory !== selectedPatient.category && (
+                      <div className={`mt-3 p-3 rounded-xl border animate-fade-in ${
+                        isDark ? 'bg-[#181818] border-neutral-700' : 'bg-white border-neutral-200'
+                      }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-on-surface">
+                            Reclassify priority to <span className="uppercase font-bold">{pendingNewCategory}</span>?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingNewCategory(null);
+                              setOverrideReason('');
+                            }}
+                            className="text-neutral-400 hover:text-on-surface text-xs p-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          value={overrideReason}
+                          onChange={(e) => setOverrideReason(e.target.value)}
+                          placeholder="Clinical rationale or notes (optional)..."
+                          className={`w-full px-2.5 py-1.5 rounded-lg text-xs border mb-2.5 outline-none focus:ring-1 focus:ring-primary ${
+                            isDark ? 'bg-[#121212] border-neutral-700 text-white' : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+                          }`}
+                        />
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateSeverity(selectedPatient.id, pendingNewCategory, overrideReason)}
+                            disabled={isOverridingCategory}
+                            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-white cursor-pointer disabled:opacity-50 ${
+                              pendingNewCategory === 'red' ? 'bg-error hover:bg-error/90' : pendingNewCategory === 'yellow' ? 'bg-warning text-black hover:bg-warning/90' : 'bg-success hover:bg-success/90'
+                            }`}
+                          >
+                            {isOverridingCategory ? 'Saving...' : 'Confirm Reclassification'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingNewCategory(null);
+                              setOverrideReason('');
+                            }}
+                            disabled={isOverridingCategory}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border dark:border-neutral-700 text-neutral-400 hover:text-on-surface cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

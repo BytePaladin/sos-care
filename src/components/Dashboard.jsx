@@ -1,34 +1,59 @@
 import { useState, useRef, useEffect } from 'react';
-import { api } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
+import { api } from '../services/api';
 
+// Colours for the severity badge on a screened reply. Keyed by the lowercase
+// label the backend returns (see server/utils/severity.js).
 const SEVERITY_BADGE = {
-  red: 'bg-red-500/15 text-red-400',
-  yellow: 'bg-amber-500/15 text-amber-500',
-  green: 'bg-emerald-500/15 text-emerald-500',
+  green: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  yellow: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+  red: 'bg-red-500/15 text-red-400 border border-red-500/30',
 };
 
 export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   const { isDark } = useTheme();
-
-  const storageKey = `sos_chats_${userName?.replace(/\s+/g, '_')}`;
-  const [chats, setChats] = useState(() => JSON.parse(localStorage.getItem(storageKey) || '[]'));
+  
+  const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [activeChatId, setActiveChatId] = useState(null);
-  const [isSending, setIsSending] = useState(false);
+
+  const fetchChats = async () => {
+    try {
+      const history = await api.getUserChats();
+      setChats(history.map(c => ({
+        ...c,
+        id: c._id,
+        preview: c.messages && c.messages.length > 0 ? c.messages[c.messages.length - 1].text : 'Empty chat',
+      })));
+    } catch (err) {
+      console.error('Failed to fetch chats:', err);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(chats));
-  }, [chats, storageKey]);
+    fetchChats();
+    const interval = setInterval(fetchChats, 3000); // 3s auto-sync
+    return () => clearInterval(interval);
+  }, []);
+
+  // Sync messages when polling updates chats
+  useEffect(() => {
+    if (activeChatId) {
+      const current = chats.find(c => c.id === activeChatId);
+      if (current && current.messages) {
+        setMessages((prev) => {
+          if (prev.length !== current.messages.length) return current.messages;
+          return prev;
+        });
+      }
+    }
+  }, [chats, activeChatId]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
-  // setIsSending() পরের render-এ কাজ করে, তাই একই tick-এ দুইবার submit হলে
-  // state guard আটকাতে পারে না — ref সাথে সাথেই কাজ করে।
-  const sendingRef = useRef(false);
 
   /* ── Auto-scroll on new messages ── */
   useEffect(() => {
@@ -46,82 +71,38 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   }, [inputText]);
 
   /* ── Helpers ── */
-  const upsertChat = (chatId, updater, initial) => {
-    setChats((prevChats) => {
-      const exists = prevChats.some((c) => c.id === chatId);
-      if (!exists) return [initial, ...prevChats];
-      return prevChats.map((c) => (c.id === chatId ? updater(c) : c));
-    });
-  };
-
-  /**
-   * Sends the message to the real backend, which runs the hybrid triage
-   * (Flask ML classifier + deterministic safety net) and returns the bot reply
-   * plus the severity label it assigned.
-   */
   const sendMessage = async (text) => {
     const trimmed = text.trim();
-    if (!trimmed || sendingRef.current) return;
-    sendingRef.current = true;
+    if (!trimmed) return;
 
-    const userMsg = { role: 'user', text: trimmed };
-
-    let currentChatId = activeChatId;
-    if (currentChatId === null) {
-      currentChatId = Date.now();
-      setActiveChatId(currentChatId);
-    }
-
-    upsertChat(
-      currentChatId,
-      (c) => ({ ...c, preview: trimmed, time: 'Just now', messages: [...c.messages, userMsg] }),
-      {
-        id: currentChatId,
-        title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
-        preview: trimmed,
-        time: 'Just now',
-        messages: [userMsg],
-        sessionId: null,
-      },
-    );
-
+    let currentSessionId = activeChatId;
+    
+    // Optimistic UI update for the user message
+    const userMsg = { sender: 'user', text: trimmed, timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
     setInputText('');
-    setIsSending(true);
 
     try {
-      // একটি chat-এর জন্য প্রথম message-এ backend session তৈরি হয়, পরে সেটিই ব্যবহার হয়
-      let sessionId = chats.find((c) => c.id === currentChatId)?.sessionId || null;
-      if (!sessionId) {
-        const created = await api.createChatSession();
-        sessionId = created.sessionId;
-        upsertChat(currentChatId, (c) => ({ ...c, sessionId }), null);
+      if (!currentSessionId) {
+        // Create new session via API
+        const newSession = await api.createChatSession();
+        currentSessionId = newSession.sessionId;
+        setActiveChatId(currentSessionId);
+        // The newly created session comes with a bot greeting message
+        setMessages((prev) => [...newSession.messages, userMsg]);
       }
 
-      const serverMessages = await api.sendChatMessage(sessionId, trimmed);
-      const lastBot = [...serverMessages].reverse().find((m) => m.sender === 'bot');
+      // Send the user message to the backend
+      const updatedMessages = await api.sendChatMessage(currentSessionId, trimmed);
+      
+      // Update the chat window with the full conversation including the bot's response
+      setMessages(updatedMessages);
 
-      const botMsg = {
-        role: 'bot',
-        text: lastBot?.text || 'Your message was logged, but no reply was returned.',
-        severity: lastBot?.metadata?.finalLabel || null,
-        ruleOverride: lastBot?.metadata?.ruleOverride || false,
-      };
-
-      upsertChat(currentChatId, (c) => ({ ...c, preview: botMsg.text, messages: [...c.messages, botMsg] }), null);
-      setMessages((prev) => [...prev, botMsg]);
+      // Refresh the chat list in the sidebar to update previews
+      await fetchChats();
     } catch (err) {
-      // Screening ব্যর্থ হলে ভুয়া label দেখানো বিপজ্জনক — স্পষ্টভাবে জানানো হচ্ছে
-      const errMsg = {
-        role: 'bot',
-        text: `⚠️ Could not reach the screening service (${err.message}). Your message was not triaged. Please try again, or call the help desk at +880 1800-000000 if you need help now.`,
-        severity: null,
-      };
-      upsertChat(currentChatId, (c) => ({ ...c, messages: [...c.messages, errMsg] }), null);
-      setMessages((prev) => [...prev, errMsg]);
-    } finally {
-      sendingRef.current = false;
-      setIsSending(false);
+      console.error(err);
+      alert('Failed to send message: ' + err.message);
     }
   };
 
@@ -412,7 +393,7 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
 
             {/* ── Message bubbles ── */}
             {messages.map((msg, idx) =>
-              msg.role === 'user' ? (
+              msg.sender === 'user' ? (
                 /* User message */
                 <div
                   key={idx}
@@ -440,38 +421,32 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
                   </div>
 
                   <div className={`max-w-[80%] rounded-2xl rounded-bl-md px-4 py-3 shadow-sm ${isDark ? 'bg-surface-container-high text-on-surface' : 'bg-[#f0f4f9] text-[#1f1f1f]'}`}>
-                    {msg.severity && (
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {msg.text}
+                    </p>
+
+                    {/* Severity assigned by the backend (ML classifier + safety net).
+                        Shown so the screening result is visible in the chat itself,
+                        not only on the staff dashboard. */}
+                    {msg.metadata?.finalLabel && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
                         <span
-                          className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${SEVERITY_BADGE[msg.severity] || ''}`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${SEVERITY_BADGE[String(msg.metadata.finalLabel).toLowerCase()] || SEVERITY_BADGE.yellow}`}
                         >
-                          {msg.severity}
+                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                          {String(msg.metadata.finalLabel).toUpperCase()}
                         </span>
-                        {msg.ruleOverride && (
-                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">
-                            safety-net override
+
+                        {msg.metadata.ruleOverride && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-500/15 text-red-400 border border-red-500/30">
+                            safety net → forced RED
                           </span>
                         )}
                       </div>
                     )}
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {msg.text}
-                    </p>
                   </div>
                 </div>
               ),
-            )}
-
-            {/* ── Screening in progress ── */}
-            {isSending && (
-              <div className="flex justify-start gap-2.5 animate-slide-up">
-                <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
-                  <img src="/kidney-hospital-logo.png" alt="" className="w-5 h-5 rounded-full object-cover" />
-                </div>
-                <div className={`rounded-2xl rounded-bl-md px-4 py-3 shadow-sm ${isDark ? 'bg-surface-container-high text-on-surface' : 'bg-[#f0f4f9] text-[#1f1f1f]'}`}>
-                  <p className="text-sm opacity-70">Screening your message…</p>
-                </div>
-              </div>
             )}
 
             {/* Scroll anchor */}
@@ -514,16 +489,13 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
               {/* Send button */}
               {inputText.trim() && (
                 <button
-                  type="button"
                   onClick={handleSend}
-                  disabled={isSending}
                   className="
                     rounded-full bg-primary text-on-primary
                     p-2 ml-2 shrink-0
                     hover:brightness-110 active:scale-95
                     transition-all duration-200 cursor-pointer
                     shadow-sm animate-fade-in
-                    disabled:opacity-40 disabled:cursor-not-allowed
                   "
                   aria-label="Send message"
                 >

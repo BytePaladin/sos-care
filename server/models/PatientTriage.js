@@ -1,12 +1,12 @@
 import mongoose from 'mongoose';
-import { higherSeverity } from '../utils/severity.js'; // দুই label আলাদা হলে বেশি জরুরিটি বেছে নিতে
+import { higherSeverity } from '../utils/severity.js'; // to pick the more urgent one if two labels differ
 
 /**
  * PatientTriage.js
- * Week 3 update: proposal Appendix C অনুযায়ী audit field যোগ করা হয়েছে —
- * mlLabel (model কী বলেছিল), ruleOverride (safety-net চালু হয়েছিল কিনা),
- * finalLabel (queue-তে যেটি ব্যবহার হচ্ছে) এবং matchedKeywords.
- * পুরনো `category` field রাখা হয়েছে যাতে frontend ভেঙে না যায়.
+ * Week 3 update: audit fields added according to proposal Appendix C —
+ * mlLabel (what model said), ruleOverride (whether safety-net was triggered),
+ * finalLabel (which is used in queue) and matchedKeywords.
+ * The old `category` field is kept so frontend doesn't break.
  */
 
 const patientTriageSchema = new mongoose.Schema(
@@ -15,30 +15,30 @@ const patientTriageSchema = new mongoose.Schema(
     patientPhone: { type: String, required: true, index: true, trim: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 
-    // Triage Classification (frontend এটিই পড়ে — finalLabel এর সাথে সব সময় sync থাকে)
+    // Triage Classification (frontend reads this — always in sync with finalLabel)
     category: { type: String, enum: ['red', 'yellow', 'green'], default: 'green', index: true },
 
     // ── Week 3: Hybrid decision audit trail (Proposal Figure 2 / Appendix C) ──
     mlLabel: {
-      type: String, // ML classifier কী label দিয়েছিল
-      enum: ['red', 'yellow', 'green'], // তিনটি tier-ই অনুমোদিত
-      default: 'green', // কিছু না পেলে green
+      type: String, // what label ML classifier gave
+      enum: ['red', 'yellow', 'green'], // all three tiers allowed
+      default: 'green', // green if nothing is found
     },
     ruleOverride: {
-      type: Boolean, // safety-net keyword layer চালু হয়েছিল কিনা
-      default: false, // default হলো override হয়নি
+      type: Boolean, // whether safety-net keyword layer was triggered
+      default: false, // default is not overridden
     },
     finalLabel: {
-      type: String, // override প্রয়োগের পর চূড়ান্ত label
-      enum: ['red', 'yellow', 'green'], // তিনটি tier
+      type: String, // final label after override applied
+      enum: ['red', 'yellow', 'green'], // three tiers
       default: 'green', // default green
-      index: true, // priority queue sort-এ ব্যবহার হয়
+      index: true, // used in priority queue sort
     },
-    matchedKeywords: [{ type: String }], // কোন কোন critical rule hit করেছিল
+    matchedKeywords: [{ type: String }], // which critical rules hit
     modelSource: {
-      type: String, // label কোথা থেকে এলো
-      enum: ['ml-service', 'fallback-heuristic', 'empty-input', 'manual'], // সম্ভাব্য উৎস
-      default: 'fallback-heuristic', // Flask service না থাকলে এটাই
+      type: String, // where the label came from
+      enum: ['ml-service', 'fallback-heuristic', 'empty-input', 'manual'], // possible sources
+      default: 'fallback-heuristic', // this one if Flask service absent
     },
 
     // Clinical Screening Metadata
@@ -47,6 +47,25 @@ const patientTriageSchema = new mongoose.Schema(
       symptomTags: [{ type: String }],
       confidenceScore: { type: Number, default: 0 },
       riskFactors: [{ type: String }],
+    },
+
+    // Original AI Assigned Category before doctor override
+    initialCategory: {
+      type: String,
+      enum: ['red', 'yellow', 'green'],
+      default: function () {
+        return this.finalLabel || this.category || 'green';
+      },
+    },
+
+    // Doctor Severity Override Tracking (Escalation / De-escalation)
+    doctorOverride: {
+      isOverridden: { type: Boolean, default: false },
+      overriddenBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      overriddenByName: { type: String, default: '' },
+      overriddenAt: { type: Date, default: null },
+      previousCategory: { type: String, enum: ['red', 'yellow', 'green', ''], default: '' },
+      reason: { type: String, default: '' },
     },
 
     // Review Workflow Status
@@ -76,30 +95,30 @@ const patientTriageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Doctor dashboard-এর queue query দ্রুত করার জন্য compound index
+// Compound index to speed up queue query in Doctor dashboard
 patientTriageSchema.index({ reviewStatus: 1, finalLabel: 1, screenedAt: -1 });
 
 /**
- * save করার আগে category ও finalLabel সব সময় একই রাখা হয়.
- * এতে পুরনো frontend (category) আর নতুন code (finalLabel) দুটোই ঠিক থাকে.
+ * category and finalLabel are always kept the same before saving.
+ * This ensures both old frontend (category) and new code (finalLabel) are fine.
  */
 patientTriageSchema.pre('save', function (next) {
-  // মনে রাখা দরকার: Mongoose-এ default দিয়ে বসা field কে isModified() modified ধরে না,
-  // তাই নিচের শর্তগুলো ঠিকভাবেই কাজ করে (seed.js শুধু category দেয়, controller শুধু finalLabel দেয়).
+  // Remember: fields populated by default are not considered modified by isModified() in Mongoose,
+  // so the conditions below work correctly (seed.js only gives category, controller only gives finalLabel).
   if (this.isModified('finalLabel')) {
-    this.category = this.finalLabel; // নতুন code → পুরনো field sync
+    this.category = this.finalLabel; // new code → sync old field
   } else if (this.isModified('category')) {
-    this.finalLabel = this.category; // পুরনো code → নতুন field sync
+    this.finalLabel = this.category; // old code → sync new field
   }
 
-  // fail-safe: কোনো কারণে দুটি আলাদা থেকে গেলে বেশি জরুরি label-টিই রাখা হয়
+  // fail-safe: if for some reason they remain different, the more urgent label is kept
   if (this.category !== this.finalLabel) {
     const safest = higherSeverity(this.category, this.finalLabel); // Red > Yellow > Green
-    this.category = safest; // দুই field-ই
-    this.finalLabel = safest; // একই নিরাপদ মানে আনা
+    this.category = safest; // both fields
+    this.finalLabel = safest; // brought to same safe value
   }
 
-  next(); // save চালিয়ে যাওয়া
+  next(); // proceed to save
 });
 
 export const PatientTriage = mongoose.model('PatientTriage', patientTriageSchema);

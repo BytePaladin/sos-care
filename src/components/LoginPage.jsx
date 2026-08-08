@@ -23,26 +23,15 @@ export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
       onLogin(user);
       onShowToast(`Welcome back, ${user.name}!`, 'success');
     } catch (err) {
-      // Fallback to local storage if offline
-      const storedUsers = JSON.parse(localStorage.getItem('sos_users') || 'null') || defaultUsers;
-      const storedStaff = JSON.parse(localStorage.getItem('sos_users_staff') || 'null') || mockStaffUsers;
-
-      const staffUser = storedStaff.find((u) => u.phone === phone && u.password === password);
-      if (staffUser) {
-        onLogin({ ...staffUser, role: 'staff' });
-        setIsLoading(false);
-        return;
-      }
-
-      const patientUser = storedUsers.find((u) => u.phone === phone && u.password === password);
-      if (patientUser) {
-        onLogin({ ...patientUser, role: 'patient' });
-      } else {
-        onShowToast(err.message || 'Invalid phone number or password', 'error');
-      }
+      onShowToast(err.message || 'Invalid phone number or password', 'error');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleQuickFill = (demoPhone, demoPassword) => {
+    setPhone(demoPhone);
+    setPassword(demoPassword);
   };
 
   return (
@@ -170,18 +159,45 @@ export default function LoginPage({ onNavigate, onLogin, onShowToast }) {
             Create New Account
           </button>
 
-          {/* Demo Credentials Hint */}
-          <div className="p-4 rounded-xl bg-[#121212] border border-neutral-800 text-xs text-gray-400 w-full space-y-2">
-            <div>
-              <p className="font-medium text-gray-300 mb-1">Demo Patient:</p>
-              <p>Phone: <span className="font-mono text-primary">01700000000</span></p>
-              <p>Password: <span className="font-mono text-primary">password123</span></p>
-            </div>
-            <div className="border-t border-neutral-800 pt-2">
-              <p className="font-medium text-gray-300 mb-1">Demo Medical Staff:</p>
-              <p>Phone: <span className="font-mono text-primary">01800000000</span> (Dr. Nusrat)</p>
-              <p>Phone: <span className="font-mono text-primary">01900000000</span> (Dr. Tanvir)</p>
-              <p>Password: <span className="font-mono text-primary">password123</span></p>
+          {/* Quick Demo Access (Seeded accounts) */}
+          <div className="pt-4 border-t border-neutral-800 mt-2 w-full">
+            <p className="text-xs font-semibold text-gray-400 mb-3 text-center">Quick Demo Access:</p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickFill('01700000000', 'Demo@1234')}
+                className="p-3 rounded-xl border bg-[#121212] border-neutral-800 hover:border-primary text-[#80D5D4] text-xs font-medium flex justify-between items-center transition-colors cursor-pointer group"
+              >
+                <div className="flex items-center gap-2">
+                  <span>👤</span>
+                  <span className="group-hover:text-white transition-colors">Demo Patient (Kamrul)</span>
+                </div>
+                <span className="font-mono text-gray-400">01700000000</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickFill('01800000000', 'Staff@1234')}
+                className="p-3 rounded-xl border bg-[#121212] border-neutral-800 hover:border-primary text-emerald-400 text-xs font-medium flex justify-between items-center transition-colors cursor-pointer group"
+              >
+                <div className="flex items-center gap-2">
+                  <span>👩‍⚕️</span>
+                  <span className="group-hover:text-white transition-colors">Dr. Nusrat Jahan (Staff)</span>
+                </div>
+                <span className="font-mono text-gray-400">01800000000</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickFill('01900000000', 'Staff@1234')}
+                className="p-3 rounded-xl border bg-[#121212] border-neutral-800 hover:border-primary text-emerald-400 text-xs font-medium flex justify-between items-center transition-colors cursor-pointer group"
+              >
+                <div className="flex items-center gap-2">
+                  <span>👨‍⚕️</span>
+                  <span className="group-hover:text-white transition-colors">Dr. Tanvir Ahmed (Staff)</span>
+                </div>
+                <span className="font-mono text-gray-400">01900000000</span>
+              </button>
             </div>
           </div>
         </div>

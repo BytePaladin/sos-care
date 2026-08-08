@@ -16,6 +16,7 @@ try {
 import { User } from './models/User.js';
 import { PatientTriage } from './models/PatientTriage.js';
 import { ChatSession } from './models/ChatSession.js';
+import { StaffAction } from './models/StaffAction.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -29,19 +30,38 @@ export const seedDatabase = async () => {
     await User.deleteMany({});
     await PatientTriage.deleteMany({});
     await ChatSession.deleteMany({});
+    await StaffAction.deleteMany({});
 
-    console.log('[Seed] Inserting users...');
+    console.log('[Seed] Inserting users & admins...');
+
+    // 2 Seeded Bangladeshi Hospital Admins
+    const admin1 = await User.create({
+      name: 'Dr. Rafiqul Islam',
+      phone: '01711112222',
+      password: 'admin123',
+      role: 'admin',
+      staffRole: 'Hospital Administrator',
+    });
+
+    const admin2 = await User.create({
+      name: 'Farhana Chowdhury',
+      phone: '01811113333',
+      password: 'admin123',
+      role: 'admin',
+      staffRole: 'Clinical Operations Director',
+    });
+
     const patientUser = await User.create({
-      name: 'John Doe',
+      name: 'Kamrul Hasan',
       phone: '01700000000',
-      password: 'password123',
+      password: 'Demo@1234',
       role: 'patient',
     });
 
     const staff1 = await User.create({
       name: 'Dr. Nusrat Jahan',
       phone: '01800000000',
-      password: 'password123',
+      password: 'Staff@1234',
       role: 'staff',
       staffRole: 'Chief Nephrologist',
       telegramChatId: process.env.VITE_TELEGRAM_CHAT_ID || '6116969946',
@@ -51,7 +71,7 @@ export const seedDatabase = async () => {
     const staff2 = await User.create({
       name: 'Dr. Tanvir Ahmed',
       phone: '01900000000',
-      password: 'password123',
+      password: 'Staff@1234',
       role: 'staff',
       staffRole: 'Resident Physician',
       telegramChatId: '',
@@ -165,6 +185,27 @@ export const seedDatabase = async () => {
         { sender: 'user', text: 'How much water should I drink daily to keep my kidneys healthy?', timestamp: new Date(Date.now() - 3600000 * 48) },
         { sender: 'bot', text: 'Low triage (Green): General advice provided. 2-2.5 Liters daily is recommended for average adults.', timestamp: new Date(Date.now() - 3600000 * 48 + 10000) },
       ],
+    });
+
+    console.log('[Seed] Inserting staff action audit logs...');
+    await StaffAction.create({
+      submissionId: triage2._id,
+      staffId: staff1._id,
+      staffName: staff1.name,
+      actionType: 'ASSIGNED',
+      status: 'needs_review',
+      note: 'Forwarded patient file to Dr. Tanvir Ahmed for medication review',
+      createdAt: new Date(Date.now() - 3600000 * 5),
+    });
+
+    await StaffAction.create({
+      submissionId: triage3._id,
+      staffId: staff1._id,
+      staffName: staff1.name,
+      actionType: 'STATUS_UPDATE',
+      status: 'contacted',
+      note: 'Contacted patient via phone, reassured that symptoms are normal.',
+      createdAt: new Date(Date.now() - 3600000 * 24),
     });
 
     console.log('[Seed] Success! Database seeded cleanly.');

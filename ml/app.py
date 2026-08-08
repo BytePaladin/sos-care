@@ -35,7 +35,21 @@ def predict_route():
     if not isinstance(text, str) or not text.strip():
         return jsonify({"error": "Request body must include a non-empty 'text' string."}), 400
     try:
-        return jsonify(predict.predict_label(text))
+        result = predict.predict_label(text)
+        # Response shape is fixed by server/docs/ML_SERVICE_CONTRACT.md (v1):
+        # `label` + `confidence`, lowercase. Per that contract the service
+        # returns the *classifier's* label only -- the safety net and the final
+        # override decision belong to the backend, so that a model bug can never
+        # disable them. mlLabel/ruleOverride/finalLabel are kept alongside for
+        # the standalone CLI tools and for debugging; the backend ignores them.
+        return jsonify({
+            "label": result["mlLabel"].lower(),
+            "confidence": result["confidence"],
+            "model_version": "dataset_v2",
+            "mlLabel": result["mlLabel"],
+            "ruleOverride": result["ruleOverride"],
+            "finalLabel": result["finalLabel"],
+        })
     except FileNotFoundError as e:
         # Model not trained yet -- fail loudly so the backend can apply its
         # YELLOW fail-safe (spec.md NFR2) rather than get a wrong label.

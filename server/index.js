@@ -1,79 +1,102 @@
 /**
  * index.js — S.O.S. Care API server entry point
- * Week 3 update: request logger, 404 handler, centralised error handler,
- * সমৃদ্ধ health check এবং শুরুতেই environment যাচাই যোগ করা হয়েছে.
+ * Week 3: request logger, 404 handler, centralised error handler,
+ * health check and initial environment validation.
+ * Week 5: notification routes mounted; health check now reports whether
+ * rate limiting is active.
+ * Week 6: health check also reports the ML circuit-breaker state.
  */
 
 import './config/env.js'; // ⚠️ সবার আগে — অন্য module module-load সময় process.env পড়ে
 
 import express from 'express'; // web framework
-import cors from 'cors'; // frontend থেকে call করার অনুমতি
-import { connectDB } from './config/db.js'; // MongoDB সংযোগ
+import cors from 'cors'; // allow frontend calls
+import { connectDB, isUsingInMemoryMongo } from './config/db.js'; // MongoDB connection
 
 import authRoutes from './routes/authRoutes.js'; // /api/auth
 import triageRoutes from './routes/triageRoutes.js'; // /api/triage
 import chatRoutes from './routes/chatRoutes.js'; // /api/chats
+import adminRoutes from './routes/adminRoutes.js'; // /api/admin
+import notificationRoutes from './routes/notificationRoutes.js'; // /api/notifications (Week 5)
 import { notFound, errorHandler } from './middleware/errorHandler.js'; // error middleware
-import { pingMlService } from './services/mlClient.js'; // ML service জীবিত কিনা
-import { getSafetyNetRuleTags } from './services/safetyNet.js'; // কতগুলো rule আছে
+import { pingMlService, getMlBreakerState } from './services/mlClient.js'; // check if ML service is alive
+import { getSafetyNetRuleTags } from './services/safetyNet.js'; // how many rules exist
+
+// NOTE: .env loading lives in ./config/env.js (imported first, above). It must
+// run before any module that reads process.env at load time — see that file.
 
 const app = express(); // express app
-const PORT = process.env.PORT || 5000; // কোন port-এ চলবে
+const PORT = process.env.PORT || 5000; // port to run on
 
-// ── শুরুতেই জরুরি env variable যাচাই — ভুল থাকলে এখনই সতর্ক করা ভালো ──
+// ── Validate essential env variables on startup — better to warn early ──
 if (!process.env.JWT_SECRET) {
-  console.warn('[Warn] JWT_SECRET is not set — falling back to the default dev secret.'); // production-এ অবশ্যই সেট করতে হবে
+  console.warn('[Warn] JWT_SECRET is not set — falling back to the default dev secret.'); // must set in production
 }
 if (!process.env.MONGODB_URI) {
   console.log('[Info] MONGODB_URI is not set — an in-memory MongoDB will be started and seeded for local demo use.');
 }
 
-// MongoDB সংযোগ — MONGODB_URI না থাকলে in-memory Mongo চালু হয় এবং
-// সেটি প্রতিবার খালি থাকে, তাই demo data একবার seed করে নেওয়া হয়।
-const usingInMemoryMongo = !process.env.MONGODB_URI;
+// MongoDB connection. When MONGODB_URI is not set, config/db.js starts an
+// in-memory MongoDB, which is empty on every restart — so it is seeded once
+// here. With a real MONGODB_URI (Atlas / deployment) nothing is seeded.
 await connectDB();
-if (usingInMemoryMongo) {
+if (isUsingInMemoryMongo()) {
   const { seedDatabase } = await import('./seed.js');
   await seedDatabase();
 }
 
 // ── Middleware ──
-app.use(cors()); // সব origin-কে অনুমতি (demo-এর জন্য যথেষ্ট)
-app.use(express.json({ limit: '1mb' })); // JSON body parse, বড় payload আটকানো
+app.use(cors()); // allow all origins (sufficient for demo)
+app.use(express.json({ limit: '1mb' })); // parse JSON body, prevent large payloads
 
-// প্রতিটি request কত সময় নিল তা log করা — debugging-এ খুব কাজে দেয়
+// Disable caching for all API responses (Vercel CDN / Browser)
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
+  next();
+});
+
+// Log how long each request took — very useful for debugging
 app.use((req, res, next) => {
-  const startedAt = Date.now(); // শুরুর সময়
+  const startedAt = Date.now(); // start time
   res.on('finish', () => {
-    const ms = Date.now() - startedAt; // মোট সময়
+    const ms = Date.now() - startedAt; // total time
     console.log(`[API] ${req.method} ${req.originalUrl} → ${res.statusCode} (${ms}ms)`); // log line
   });
-  next(); // পরবর্তী middleware
+  next(); // next middleware
 });
 
 // ── API Routes ──
 app.use('/api/auth', authRoutes); // authentication
 app.use('/api/triage', triageRoutes); // staff dashboard
 app.use('/api/chats', chatRoutes); // patient screening
+app.use('/api/admin', adminRoutes); // admin panel
+app.use('/api/notifications', notificationRoutes); // Week 5: staff notification bell
 
-// ── Health check (ML service ও safety-net status সহ) ──
+// ── Health check (including ML service and safety-net status) ──
 app.get('/api/health', async (req, res) => {
-  const mlAlive = await pingMlService(); // Flask service সাড়া দিচ্ছে কিনা
+  const mlAlive = await pingMlService(); // is Flask service responding
 
   res.json({
-    status: 'OK', // server চালু
-    message: 'S.O.S. Care API Server running', // পুরনো frontend এই key দেখে
-    mlService: mlAlive ? 'online' : 'offline (fallback heuristic active)', // ML অবস্থা
-    safetyNetRules: getSafetyNetRuleTags().length, // কতগুলো critical rule সক্রিয়
-    timestamp: new Date().toISOString(), // সময়
+    status: 'OK', // server running
+    message: 'S.O.S. Care API Server running', // legacy frontend checks this key
+    mlService: mlAlive ? 'online' : 'offline (fallback heuristic active)', // ML status
+    safetyNetRules: getSafetyNetRuleTags().length, // active critical rules count
+    rateLimiting: process.env.RATE_LIMIT_DISABLED === 'true' ? 'disabled' : 'active', // Week 5
+    mlBreaker: getMlBreakerState(), // Week 6: is the ML circuit breaker open
+    timestamp: new Date().toISOString(), // time
   });
 });
 
-// ── Error handling (সব route-এর পরে বসাতে হয়) ──
-app.use(notFound); // কোনো route না মিললে 404
-app.use(errorHandler); // সব error এক format-এ
+// ── Error handling (must be placed after all routes) ──
+app.use(notFound); // 404 if no route matched
+app.use(errorHandler); // unified error format
 
 app.listen(PORT, () => {
-  console.log(`[Express] Server running on http://localhost:${PORT}`); // startup বার্তা
-  console.log(`[Safety-Net] ${getSafetyNetRuleTags().length} critical rules loaded`); // rule সংখ্যা
+  console.log(`[Express] Server running on http://localhost:${PORT}`); // startup message
+  console.log(`[Safety-Net] ${getSafetyNetRuleTags().length} critical rules loaded`); // rule count
 });
+
+export default app;

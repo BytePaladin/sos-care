@@ -6,6 +6,7 @@ import LoginPage from './components/LoginPage';
 import SignUpPage from './components/SignUpPage';
 import Dashboard from './components/Dashboard';
 import StaffDashboard from './components/StaffDashboard';
+import AdminDashboard from './components/AdminDashboard';
 import SettingsModal from './components/SettingsModal';
 import Toast from './components/Toast';
 
@@ -26,6 +27,8 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
       case 'dashboard':
         if (loggedInUser?.role === 'staff') {
           navigate('/staff');
+        } else if (loggedInUser?.role === 'admin') {
+          navigate('/ikh/admin');
         } else {
           navigate('/dashboard');
         }
@@ -42,6 +45,8 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
     setLoggedInUser(user);
     if (user.role === 'staff') {
       navigate('/staff');
+    } else if (user.role === 'admin') {
+      navigate('/ikh/admin');
     } else {
       navigate('/dashboard');
     }
@@ -50,7 +55,16 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
 
   const handleLogout = useCallback(() => {
     setLoggedInUser(null);
+    sessionStorage.removeItem('sos_token_patient');
+    sessionStorage.removeItem('sos_token_staff');
+    sessionStorage.removeItem('sos_token_admin');
+    sessionStorage.removeItem('sos_token');
+    sessionStorage.removeItem('sos_admin_user');
+    localStorage.removeItem('sos_token_patient');
+    localStorage.removeItem('sos_token_staff');
+    localStorage.removeItem('sos_token_admin');
     localStorage.removeItem('sos_token');
+    localStorage.removeItem('sos_admin_user');
     navigate('/login');
     showToast('You have been logged out', 'info');
   }, [navigate, setLoggedInUser, showToast]);
@@ -95,6 +109,15 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
               user={loggedInUser || { id: 'doc-1', name: 'Dr. Nusrat Jahan', role: 'staff' }}
               onOpenSettings={() => setSettingsOpen(true)}
               onLogout={handleLogout}
+            />
+          }
+        />
+        {/* Secret Isolated Admin Portal Route */}
+        <Route
+          path="/ikh/admin"
+          element={
+            <AdminDashboard
+              onShowToast={showToast}
             />
           }
         />

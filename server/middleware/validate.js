@@ -1,59 +1,59 @@
 /**
  * validate.js
- * Request body / param যাচাই করার হালকা middleware.
- * বাইরের কোনো validation package লাগছে না — তাই প্রজেক্টের খরচ শূন্যই থাকছে.
+ * Lightweight middleware to validate Request body / param.
+ * Does not require external validation packages — keeping project costs zero.
  */
 
-import mongoose from 'mongoose'; // ObjectId যাচাই করার জন্য
+import mongoose from 'mongoose'; // for validating ObjectId
 
 /**
- * নির্দিষ্ট field গুলো body-তে আছে কিনা তা যাচাই করে.
- * @param {string[]} fields — যেসব field অবশ্যই লাগবে
+ * Checks if specific fields exist in the body.
+ * @param {string[]} fields — required fields
  */
 export const requireFields = (fields) => (req, res, next) => {
-  // যেসব field অনুপস্থিত বা ফাঁকা সেগুলোর তালিকা তৈরি
+  // create list of missing or empty fields
   const missing = fields.filter((field) => {
-    const value = req.body?.[field]; // body থেকে মান নেওয়া
-    return value === undefined || value === null || String(value).trim() === ''; // ফাঁকা কিনা যাচাই
+    const value = req.body?.[field]; // get value from body
+    return value === undefined || value === null || String(value).trim() === ''; // check if empty
   });
 
-  // একটিও অনুপস্থিত থাকলে 400 দিয়ে থামিয়ে দেওয়া হয়
+  // stop and return 400 if any field is missing
   if (missing.length > 0) {
     return res.status(400).json({
-      message: `Missing required field(s): ${missing.join(', ')}`, // কোনগুলো নেই তা জানানো
+      message: `Missing required field(s): ${missing.join(', ')}`, // notify which are missing
     });
   }
 
-  next(); // সব ঠিক থাকলে পরবর্তী middleware
+  next(); // proceed to next middleware if all good
 };
 
 /**
- * URL param-এ থাকা id বৈধ MongoDB ObjectId কিনা তা যাচাই করে.
- * @param {string} paramName — param এর নাম, default 'id'
+ * Checks if the id in URL param is a valid MongoDB ObjectId.
+ * @param {string} paramName — name of param, default 'id'
  */
 export const validateObjectId = (paramName = 'id') => (req, res, next) => {
-  const value = req.params[paramName]; // param থেকে id নেওয়া
+  const value = req.params[paramName]; // get id from param
 
-  // ObjectId হিসেবে বৈধ না হলে 400 — এতে DB query-ই করতে হয় না
+  // 400 if not a valid ObjectId — saves a DB query
   if (!mongoose.Types.ObjectId.isValid(value)) {
-    return res.status(400).json({ message: `Invalid ${paramName} format` }); // পরিষ্কার বার্তা
+    return res.status(400).json({ message: `Invalid ${paramName} format` }); // clear message
   }
 
-  next(); // বৈধ হলে এগিয়ে যাওয়া
+  next(); // proceed if valid
 };
 
 /**
- * message text-এর দৈর্ঘ্য সীমা নিয়ন্ত্রণ করে (খুব বড় payload ঠেকাতে).
- * @param {string} field — কোন field দেখতে হবে
- * @param {number} max — সর্বোচ্চ character সংখ্যা
+ * Controls the maximum length of message text (to prevent huge payloads).
+ * @param {string} field — which field to check
+ * @param {number} max — maximum character count
  */
 export const maxLength = (field, max = 2000) => (req, res, next) => {
-  const value = req.body?.[field]; // body থেকে মান নেওয়া
+  const value = req.body?.[field]; // get value from body
 
-  // মান থাকলে এবং সীমা ছাড়ালে 400 ফেরত
+  // return 400 if value exists and exceeds limit
   if (typeof value === 'string' && value.length > max) {
     return res.status(400).json({ message: `${field} must be ${max} characters or fewer` });
   }
 
-  next(); // সীমার মধ্যে থাকলে এগিয়ে যাওয়া
+  next(); // proceed if within limit
 };
