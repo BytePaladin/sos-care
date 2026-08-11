@@ -7,7 +7,7 @@ const getHeaders = () => {
   const path = window.location.pathname;
   if (path.startsWith('/ikh/admin')) {
     token = sessionStorage.getItem('sos_token_admin') || token;
-  } else if (path.startsWith('/staff')) {
+  } else if (path.startsWith('/ikh/staff') || path.startsWith('/staff')) {
     token = sessionStorage.getItem('sos_token_staff') || token;
   } else {
     token = sessionStorage.getItem('sos_token_patient') || token;
