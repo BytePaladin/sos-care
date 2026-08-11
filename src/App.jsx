@@ -19,22 +19,22 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
         navigate('/');
         break;
       case 'login':
-        navigate('/login');
+        navigate('/ikh/login');
         break;
       case 'signup':
-        navigate('/signup');
+        navigate('/ikh/signup');
         break;
       case 'dashboard':
         if (loggedInUser?.role === 'staff') {
-          navigate('/staff');
+          navigate('/ikh/staff');
         } else if (loggedInUser?.role === 'admin') {
           navigate('/ikh/admin');
         } else {
-          navigate('/dashboard');
+          navigate('/ikh/patient/dashboard');
         }
         break;
       case 'staff':
-        navigate('/staff');
+        navigate('/ikh/staff');
         break;
       default:
         navigate('/');
@@ -44,11 +44,11 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
   const handleLogin = useCallback((user) => {
     setLoggedInUser(user);
     if (user.role === 'staff') {
-      navigate('/staff');
+      navigate('/ikh/staff');
     } else if (user.role === 'admin') {
       navigate('/ikh/admin');
     } else {
-      navigate('/dashboard');
+      navigate('/ikh/patient/dashboard');
     }
     showToast(`Welcome back, ${user.name}!`, 'success');
   }, [navigate, setLoggedInUser, showToast]);
@@ -65,7 +65,7 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
     localStorage.removeItem('sos_token_admin');
     localStorage.removeItem('sos_token');
     localStorage.removeItem('sos_admin_user');
-    navigate('/login');
+    navigate('/ikh/login');
     showToast('You have been logged out', 'info');
   }, [navigate, setLoggedInUser, showToast]);
 
@@ -74,7 +74,7 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
       <Routes>
         <Route path="/" element={<LandingPage onNavigate={handleNavigate} />} />
         <Route
-          path="/login"
+          path="/ikh/login"
           element={
             <LoginPage
               onNavigate={handleNavigate}
@@ -84,7 +84,7 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
           }
         />
         <Route
-          path="/signup"
+          path="/ikh/signup"
           element={
             <SignUpPage
               onNavigate={handleNavigate}
@@ -93,7 +93,7 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
           }
         />
         <Route
-          path="/dashboard"
+          path="/ikh/patient/dashboard"
           element={
             <Dashboard
               userName={loggedInUser?.name || 'Patient'}
@@ -103,7 +103,7 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
           }
         />
         <Route
-          path="/staff"
+          path="/ikh/staff"
           element={
             <StaffDashboard
               user={loggedInUser || { id: 'doc-1', name: 'Dr. Nusrat Jahan', role: 'staff' }}
@@ -121,6 +121,12 @@ function AppRoutes({ loggedInUser, setLoggedInUser, showToast, settingsOpen, set
             />
           }
         />
+        {/* Redirects for legacy routes */}
+        <Route path="/login" element={<Navigate to="/ikh/login" replace />} />
+        <Route path="/signup" element={<Navigate to="/ikh/signup" replace />} />
+        <Route path="/dashboard" element={<Navigate to="/ikh/patient/dashboard" replace />} />
+        <Route path="/staff" element={<Navigate to="/ikh/staff" replace />} />
+
         {/* Fallback for unmapped URLs */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
