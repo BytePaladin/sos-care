@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../services/api';
+import ReportsTab from './ReportsTab';
 
 export default function AdminDashboard({ onShowToast, onLogout }) {
   const { isDark, toggleTheme } = useTheme();
@@ -369,6 +370,7 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                 { id: 'analytics', label: '📊 Hospital Analytics' },
                 { id: 'accounts', label: '👥 Account Management' },
                 { id: 'staff_audit', label: '📑 Staff Audit Trail' },
+                { id: 'reports', label: '📄 Generate Reports' },
               ].map((item) => (
                 <button
                   key={item.id}
@@ -1036,6 +1038,16 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'reports' && (
+            <ReportsTab
+              isDark={isDark}
+              analytics={analytics}
+              usersList={usersList}
+              staffAnalytics={staffAnalytics}
+              staffActions={staffActions}
+            />
           )}
         </div>
       </main>
