@@ -143,7 +143,9 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
                     <tr key={idx}>
                       <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{new Date(action.createdAt).toLocaleString()}</td>
                       <td className={`border p-2 font-medium ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.actionType}</td>
-                      <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.details || 'N/A'}</td>
+                      <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>
+                        {action.note || (action.actionType === 'STATUS_UPDATE' ? `Set status to ${action.status}` : 'N/A')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
