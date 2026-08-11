@@ -422,3 +422,18 @@ export const clearAllTriageData = async (req, res) => {
   }
 };
 
+/**
+ * Fetch chats of a specific user for admin reports
+ */
+export const getUserChatsByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const chats = await ChatSession.find({ userId: id })
+      .sort({ updatedAt: -1 })
+      .populate('userId', 'name phone role');
+    res.json(chats);
+  } catch (error) {
+    console.error('Error fetching user chats by admin:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};

@@ -1,12 +1,27 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
+import { api } from '../services/api';
 
 export default function ReportsTab({ isDark, analytics, usersList, staffAnalytics, staffActions }) {
   const [reportType, setReportType] = useState('analytics');
   const [selectedEntityId, setSelectedEntityId] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [patientChats, setPatientChats] = useState([]);
+  const [isLoadingChats, setIsLoadingChats] = useState(false);
   const reportRef = useRef(null);
+
+  useEffect(() => {
+    if (reportType === 'patient' && selectedEntityId) {
+      setIsLoadingChats(true);
+      api.getUserChatsByAdmin(selectedEntityId)
+        .then(setPatientChats)
+        .catch(console.error)
+        .finally(() => setIsLoadingChats(false));
+    } else {
+      setPatientChats([]);
+    }
+  }, [reportType, selectedEntityId]);
 
   const generatePDF = async () => {
     if (!reportRef.current) return;
@@ -15,7 +30,7 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: isDark ? '#1e1e1e' : '#ffffff'
       });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -35,21 +50,21 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
     switch (reportType) {
       case 'analytics':
         return (
-          <div className="space-y-6 text-black bg-white p-8">
-            <div className="text-center border-b pb-4 mb-6 border-gray-300">
+          <div className={`space-y-6 p-8 ${isDark ? 'text-white bg-[#1e1e1e]' : 'text-black bg-white'}`}>
+            <div className={`text-center border-b pb-4 mb-6 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>
               <h2 className="text-2xl font-bold">Hospital Analytics Report</h2>
-              <p className="text-gray-500">Generated on {new Date().toLocaleDateString()}</p>
+              <p className={isDark ? 'text-neutral-400' : 'text-gray-500'}>Generated on {new Date().toLocaleDateString()}</p>
             </div>
             
             <div className="grid grid-cols-2 gap-6">
-              <div className="border p-4 rounded bg-gray-50">
+              <div className={`border p-4 rounded ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-gray-50 border-gray-200'}`}>
                 <h3 className="font-semibold text-lg mb-2">Patients Summary</h3>
                 <ul className="space-y-2">
                   <li>Total Patients: {analytics?.users?.totalPatients || 0}</li>
                   <li>Triage Queue Contacted: {analytics?.triageQueue?.contactedPatients || 0}</li>
                 </ul>
               </div>
-              <div className="border p-4 rounded bg-gray-50">
+              <div className={`border p-4 rounded ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-gray-50 border-gray-200'}`}>
                 <h3 className="font-semibold text-lg mb-2">Staff Summary</h3>
                 <ul className="space-y-2">
                   <li>Total Staff: {analytics?.users?.totalStaff || 0}</li>
@@ -62,16 +77,16 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
       
       case 'patient':
         const patient = usersList.find(u => u._id === selectedEntityId);
-        if (!patient) return <div className="p-8 text-black bg-white">Please select a patient.</div>;
+        if (!patient) return <div className={`p-8 ${isDark ? 'text-white bg-[#1e1e1e]' : 'text-black bg-white'}`}>Please select a patient.</div>;
         
         return (
-          <div className="space-y-6 text-black bg-white p-8">
-             <div className="text-center border-b pb-4 mb-6 border-gray-300">
+          <div className={`space-y-6 p-8 ${isDark ? 'text-white bg-[#1e1e1e]' : 'text-black bg-white'}`}>
+             <div className={`text-center border-b pb-4 mb-6 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>
               <h2 className="text-2xl font-bold">Patient Report</h2>
-              <p className="text-gray-500">Generated on {new Date().toLocaleDateString()}</p>
+              <p className={isDark ? 'text-neutral-400' : 'text-gray-500'}>Generated on {new Date().toLocaleDateString()}</p>
             </div>
             
-            <div className="border p-4 rounded bg-gray-50">
+            <div className={`border p-4 rounded ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-gray-50'}`}>
               <h3 className="font-semibold text-lg mb-4">Patient Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div><strong>Name:</strong> {patient.name}</div>
@@ -81,6 +96,31 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
                 <div><strong>Triage Status:</strong> {patient.triage?.reviewStatus || 'N/A'}</div>
                 <div><strong>Severity:</strong> {patient.triage?.severityCategory || 'Uncategorized'}</div>
               </div>
+            </div>
+
+            <div className="mt-8">
+              <h3 className="font-semibold text-lg mb-4">Chat History</h3>
+              {isLoadingChats ? (
+                <p>Loading chats...</p>
+              ) : patientChats.length === 0 ? (
+                <p>No chats found for this patient.</p>
+              ) : (
+                <div className="space-y-6">
+                  {patientChats.map((chat) => (
+                    <div key={chat._id} className={`border p-4 rounded ${isDark ? 'border-neutral-700 bg-neutral-800/50' : 'border-gray-200 bg-white'}`}>
+                      <div className="font-semibold mb-3 border-b pb-2">Session: {new Date(chat.createdAt).toLocaleString()} - <span className="font-normal italic text-sm">{chat.title}</span></div>
+                      <div className="space-y-3">
+                        {chat.messages?.map((msg, i) => (
+                          <div key={i} className={`p-3 rounded-lg text-sm ${msg.sender === 'bot' || msg.sender === 'system' ? (isDark ? 'bg-neutral-800' : 'bg-gray-100') : msg.sender === 'staff' ? (isDark ? 'bg-amber-900/30 text-amber-100' : 'bg-amber-100 text-amber-900') : (isDark ? 'bg-primary/20 text-primary-200' : 'bg-primary/10 text-primary')}`}>
+                            <strong className="block mb-1">{msg.sender === 'user' ? patient.name : msg.sender === 'staff' ? 'Staff' : msg.sender === 'system' ? 'System' : 'AI Assistant'}:</strong> 
+                            {msg.text}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -92,13 +132,13 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
         const staffActionLog = staffActions?.filter(action => action.staffId?._id === staff._id) || [];
 
         return (
-          <div className="space-y-6 text-black bg-white p-8">
-            <div className="text-center border-b pb-4 mb-6 border-gray-300">
+          <div className={`space-y-6 p-8 ${isDark ? 'text-white bg-[#1e1e1e]' : 'text-black bg-white'}`}>
+            <div className={`text-center border-b pb-4 mb-6 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>
               <h2 className="text-2xl font-bold">Staff Audit Report</h2>
-              <p className="text-gray-500">Generated on {new Date().toLocaleDateString()}</p>
+              <p className={isDark ? 'text-neutral-400' : 'text-gray-500'}>Generated on {new Date().toLocaleDateString()}</p>
             </div>
             
-            <div className="border p-4 rounded bg-gray-50 mb-6">
+            <div className={`border p-4 rounded mb-6 ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-gray-50 border-gray-200'}`}>
               <h3 className="font-semibold text-lg mb-4">Staff Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div><strong>Name:</strong> {staff.name}</div>
@@ -109,20 +149,20 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
 
             <h3 className="font-semibold text-lg mb-4">Activity Log</h3>
             {staffActionLog.length > 0 ? (
-              <table className="w-full text-left border-collapse">
+              <table className={`w-full text-left border-collapse ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>
                 <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border p-2">Date</th>
-                    <th className="border p-2">Action</th>
-                    <th className="border p-2">Details</th>
+                  <tr className={isDark ? 'bg-neutral-800' : 'bg-gray-100'}>
+                    <th className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>Date</th>
+                    <th className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>Action</th>
+                    <th className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>Details</th>
                   </tr>
                 </thead>
                 <tbody>
                   {staffActionLog.map((action, idx) => (
                     <tr key={idx}>
-                      <td className="border p-2">{new Date(action.timestamp).toLocaleString()}</td>
-                      <td className="border p-2 font-medium">{action.actionType}</td>
-                      <td className="border p-2">{action.details || 'N/A'}</td>
+                      <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{new Date(action.timestamp).toLocaleString()}</td>
+                      <td className={`border p-2 font-medium ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.actionType}</td>
+                      <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.details || 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -135,31 +175,31 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
 
       case 'audits':
         return (
-          <div className="space-y-6 text-black bg-white p-8">
-            <div className="text-center border-b pb-4 mb-6 border-gray-300">
+          <div className={`space-y-6 p-8 ${isDark ? 'text-white bg-[#1e1e1e]' : 'text-black bg-white'}`}>
+            <div className={`text-center border-b pb-4 mb-6 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>
               <h2 className="text-2xl font-bold">Overall Staff Audit Report</h2>
-              <p className="text-gray-500">Generated on {new Date().toLocaleDateString()}</p>
+              <p className={isDark ? 'text-neutral-400' : 'text-gray-500'}>Generated on {new Date().toLocaleDateString()}</p>
             </div>
             
-            <table className="w-full text-left border-collapse">
+            <table className={`w-full text-left border-collapse ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border p-2">Date</th>
-                  <th className="border p-2">Staff Member</th>
-                  <th className="border p-2">Action</th>
+                <tr className={isDark ? 'bg-neutral-800' : 'bg-gray-100'}>
+                  <th className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>Date</th>
+                  <th className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>Staff Member</th>
+                  <th className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {staffActions?.slice(0, 50).map((action, idx) => (
                   <tr key={idx}>
-                    <td className="border p-2">{new Date(action.timestamp).toLocaleString()}</td>
-                    <td className="border p-2">{action.staffId?.name || 'Unknown'}</td>
-                    <td className="border p-2">{action.actionType}</td>
+                    <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{new Date(action.timestamp).toLocaleString()}</td>
+                    <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.staffId?.name || 'Unknown'}</td>
+                    <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.actionType}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="text-sm text-gray-500 mt-2">* Showing up to 50 recent actions.</p>
+            <p className={`text-sm mt-2 ${isDark ? 'text-neutral-400' : 'text-gray-500'}`}>* Showing up to 50 recent actions.</p>
           </div>
         );
 
@@ -251,10 +291,10 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
       </div>
 
       {/* Preview Area */}
-      <div className="border border-dashed border-gray-300 rounded-xl p-4 bg-gray-50 overflow-x-auto">
-        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Report Preview</h3>
-        <div className="bg-white border shadow-sm max-w-full overflow-hidden flex justify-center p-4">
-          <div ref={reportRef} className="w-[800px] max-w-full bg-white">
+      <div className={`border border-dashed rounded-xl p-4 overflow-x-auto ${isDark ? 'border-neutral-700 bg-neutral-900/50' : 'border-gray-300 bg-gray-50'}`}>
+        <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-neutral-500' : 'text-gray-500'}`}>Report Preview</h3>
+        <div className={`border shadow-sm max-w-full overflow-hidden flex justify-center p-4 ${isDark ? 'border-neutral-800 bg-neutral-900' : 'bg-white'}`}>
+          <div ref={reportRef} className={`w-[800px] max-w-full ${isDark ? 'bg-[#1e1e1e]' : 'bg-white'}`}>
             {renderReportContent()}
           </div>
         </div>

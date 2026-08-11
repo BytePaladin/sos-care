@@ -226,6 +226,18 @@ export const api = {
     return await res.json();
   },
 
+  getUserChatsByAdmin: async (id) => {
+    const res = await fetch(`${API_BASE}/admin/users/${id}/chats`, {
+      headers: getHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to fetch user chats');
+    }
+    return await res.json();
+  },
+
   deleteUserAccount: async (id) => {
     const res = await fetch(`${API_BASE}/admin/users/${id}`, {
       method: 'DELETE',
