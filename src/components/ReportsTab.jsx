@@ -141,7 +141,7 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
                 <tbody>
                   {staffActionLog.map((action, idx) => (
                     <tr key={idx}>
-                      <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{new Date(action.timestamp).toLocaleString()}</td>
+                      <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{new Date(action.createdAt).toLocaleString()}</td>
                       <td className={`border p-2 font-medium ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.actionType}</td>
                       <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.details || 'N/A'}</td>
                     </tr>
@@ -173,7 +173,7 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
               <tbody>
                 {staffActions?.slice(0, 50).map((action, idx) => (
                   <tr key={idx}>
-                    <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{new Date(action.timestamp).toLocaleString()}</td>
+                    <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{new Date(action.createdAt).toLocaleString()}</td>
                     <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.staffId?.name || 'Unknown'}</td>
                     <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.actionType}</td>
                   </tr>

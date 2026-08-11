@@ -123,8 +123,32 @@ export const createStaffAccount = async (req, res) => {
  */
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).select('-password').sort({ createdAt: -1 });
-    res.json(users);
+    const users = await User.find({}).select('-password').sort({ createdAt: -1 }).lean();
+    
+    // Attach latest triage data to patients
+    const patientTriages = await PatientTriage.find({ userId: { $in: users.map(u => u._id) } }).lean();
+    
+    const triageMap = {};
+    patientTriages.forEach(t => {
+      if (t.userId) {
+        // If there are multiple, this will overwrite and potentially keep the last one.
+        // For a more robust solution, we could sort by createdAt first.
+        if (!triageMap[t.userId.toString()] || new Date(t.createdAt) > new Date(triageMap[t.userId.toString()].createdAt)) {
+          triageMap[t.userId.toString()] = {
+            reviewStatus: t.reviewStatus,
+            severityCategory: t.finalLabel || t.category || 'green',
+            createdAt: t.createdAt
+          };
+        }
+      }
+    });
+
+    const populatedUsers = users.map(u => ({
+      ...u,
+      triage: u.role === 'patient' ? (triageMap[u._id.toString()] || null) : undefined
+    }));
+
+    res.json(populatedUsers);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
