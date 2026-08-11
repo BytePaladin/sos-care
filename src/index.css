@@ -249,6 +249,9 @@ html, body, #root {
 }
 
 @media print {
+  html, body {
+    background-color: white !important;
+  }
   body * {
     visibility: hidden;
   }
