@@ -247,3 +247,33 @@ html, body, #root {
 .dark .elevation-3 {
   box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.25), 0 1px 3px 0 rgba(0, 0, 0, 0.2);
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-report, #print-report * {
+    visibility: visible;
+  }
+  #print-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background-color: white !important;
+    color: black !important;
+  }
+  #print-report * {
+    color: black !important;
+    background-color: transparent !important;
+    border-color: #ddd !important;
+    box-shadow: none !important;
+  }
+  #print-report table th {
+    background-color: #f3f4f6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -1,6 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 import { api } from '../services/api';
 
 export default function ReportsTab({ isDark, analytics, usersList, staffAnalytics, staffActions }) {
@@ -23,27 +21,10 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
     }
   }, [reportType, selectedEntityId]);
 
-  const generatePDF = async () => {
-    if (!reportRef.current) return;
-    setIsGenerating(true);
-    try {
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: isDark ? '#1e1e1e' : '#ffffff'
-      });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`IKH_Report_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-    } finally {
-      setIsGenerating(false);
-    }
+  const generatePDF = () => {
+    // We use standard browser print functionality which natively supports "Save as PDF"
+    // This is much more reliable and produces actual searchable text PDFs.
+    window.print();
   };
 
   const renderReportContent = () => {
@@ -294,7 +275,7 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
       <div className={`border border-dashed rounded-xl p-4 overflow-x-auto ${isDark ? 'border-neutral-700 bg-neutral-900/50' : 'border-gray-300 bg-gray-50'}`}>
         <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-neutral-500' : 'text-gray-500'}`}>Report Preview</h3>
         <div className={`border shadow-sm max-w-full overflow-hidden flex justify-center p-4 ${isDark ? 'border-neutral-800 bg-neutral-900' : 'bg-white'}`}>
-          <div ref={reportRef} className={`w-[800px] max-w-full ${isDark ? 'bg-[#1e1e1e]' : 'bg-white'}`}>
+          <div id="print-report" ref={reportRef} className={`w-[800px] max-w-full ${isDark ? 'bg-[#1e1e1e]' : 'bg-white'}`}>
             {renderReportContent()}
           </div>
         </div>
