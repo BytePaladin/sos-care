@@ -1,6 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+
+// Temporary memory store for OTPs (for production, use Redis)
+global.otpCache = global.otpCache || {};
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'sos-care-secret-key-2026', {
@@ -92,48 +96,91 @@ export const loginUser = async (req, res) => {
   }
 };
 
+export const sendEmailOtp = async (req, res) => {
+  const { email, name } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  global.otpCache[email.toLowerCase()] = {
+    otp,
+    expires: Date.now() + 3 * 60 * 1000
+  };
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.VITE_EMAIL_USER,
+        pass: process.env.VITE_EMAIL_PASS
+      }
+    });
+
+    const mailOptions = {
+      from: `"S.O.S. Care" <${process.env.VITE_EMAIL_USER}>`,
+      to: email,
+      subject: 'Your S.O.S. Care Verification Code',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px;">
+          <h2>Welcome to S.O.S. Care, ${name || 'User'}!</h2>
+          <p>Your verification code is:</p>
+          <h1 style="color: #4CAF50; font-size: 32px; letter-spacing: 4px;">${otp}</h1>
+          <p>This code will expire in 3 minutes.</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'OTP sent successfully' });
+  } catch (error) {
+    console.error('Error sending email:', error);
+    res.status(500).json({ message: 'Failed to send OTP email. Check server configuration.' });
+  }
+};
+
 export const registerPatient = async (req, res) => {
   try {
-    const { name, phone, password, telegramData } = req.body;
+    const { name, phone, email, password, otp } = req.body;
 
-    if (!name || !phone || !password || !telegramData) {
-      return res.status(400).json({ message: 'All fields and Telegram verification are required' });
+    if (!name || !phone || !email || !password || !otp) {
+      return res.status(400).json({ message: 'All fields and OTP verification are required' });
     }
 
-    // Verify Telegram Hash
-    const botToken = process.env.VITE_TELEGRAM_BOT_TOKEN;
-    if (!botToken) {
-      return res.status(500).json({ message: 'Server configuration error: Missing Telegram Bot Token' });
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim();
+
+    // Verify OTP
+    const cachedData = global.otpCache[cleanEmail];
+    if (!cachedData) {
+      return res.status(400).json({ message: 'No OTP requested for this email' });
+    }
+    if (Date.now() > cachedData.expires) {
+      delete global.otpCache[cleanEmail];
+      return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
+    }
+    if (cachedData.otp !== otp) {
+      return res.status(400).json({ message: 'Invalid OTP' });
     }
 
-    const secretKey = crypto.createHash('sha256').update(botToken).digest();
-    const dataCheckArr = [];
-    for (const key in telegramData) {
-      if (key !== 'hash' && telegramData[key] !== undefined && telegramData[key] !== null) {
-        dataCheckArr.push(`${key}=${telegramData[key]}`);
-      }
-    }
-    dataCheckArr.sort();
-    const dataCheckString = dataCheckArr.join('\n');
-    const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-
-    if (hmac !== telegramData.hash) {
-      return res.status(401).json({ message: 'Invalid or expired Telegram authentication payload.' });
-    }
-
-    const userExists = await User.findOne({ phone: phone.trim() });
+    const userExists = await User.findOne({ 
+      $or: [{ phone: cleanPhone }, { email: cleanEmail }] 
+    });
     if (userExists) {
-      return res.status(400).json({ message: 'User with this phone number already exists' });
+      return res.status(400).json({ message: 'User with this phone number or email already exists' });
     }
 
     const user = await User.create({
       name: name.trim(),
-      phone: phone.trim(),
+      phone: cleanPhone,
+      email: cleanEmail,
       password,
       role: 'patient',
-      telegramChatId: telegramData.id.toString(),
-      telegramOptIn: true
     });
+
+    // Clear OTP after successful registration
+    delete global.otpCache[cleanEmail];
 
     if (user) {
       res.status(201).json({
@@ -141,9 +188,8 @@ export const registerPatient = async (req, res) => {
         id: user._id.toString(),
         name: user.name,
         phone: user.phone,
+        email: user.email,
         role: user.role,
-        telegramChatId: user.telegramChatId,
-        telegramOptIn: user.telegramOptIn,
         token: generateToken(user._id),
       });
     } else {

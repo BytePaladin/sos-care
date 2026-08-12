@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import TelegramLoginWidget from './TelegramLoginWidget';
 
 const SignUpPage = ({ onNavigate, onShowToast }) => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showWidget, setShowWidget] = useState(false);
+  
+  const [showOtp, setShowOtp] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [timer, setTimer] = useState(60);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
   /* ── Password strength criteria ── */
@@ -20,13 +24,40 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
   ];
 
   const allCriteriaMet = criteria.every((c) => c.met);
-  const formValid = fullName.trim() !== '' && phone.trim() !== '' && allCriteriaMet;
+  const formValid = fullName.trim() !== '' && phone.trim() !== '' && email.trim() !== '' && email.includes('@') && allCriteriaMet;
 
-  /* ── Telegram Auth Callback ── */
-  const handleTelegramAuth = async (telegramUser) => {
+  useEffect(() => {
+    let interval;
+    if (showOtp && timer > 0) {
+      interval = setInterval(() => setTimer((t) => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showOtp, timer]);
+
+  const handleSendOtp = async () => {
+    setIsSendingOtp(true);
+    try {
+      await api.sendEmailOtp(email.trim(), fullName.trim());
+      onShowToast(`Verification code sent to ${email}`, 'success');
+      setShowOtp(true);
+      setTimer(60);
+    } catch (err) {
+      onShowToast(err.message || 'Failed to send OTP.', 'error');
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (!otp.trim()) {
+      onShowToast('Please enter the verification code.', 'error');
+      return;
+    }
+    
     setIsRegistering(true);
     try {
-      await api.register(fullName.trim(), phone.trim(), password, telegramUser);
+      await api.register(fullName.trim(), phone.trim(), email.trim(), password, otp.trim());
       onShowToast('Account created successfully! Please log in.', 'success');
       onNavigate('login');
     } catch (err) {
@@ -38,9 +69,7 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formValid) return;
-    
-    // Show the widget instead of submitting directly
-    setShowWidget(true);
+    handleSendOtp();
   };
 
   /* ── Render ── */
@@ -67,7 +96,7 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
             <p className="text-gray-400 text-sm mt-1">Join Imaginary Kidney Care Hospital</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full">
+          <form onSubmit={!showOtp ? handleSubmit : handleRegister} className="flex flex-col gap-5 w-full">
             {/* ── Full Name ── */}
             <div className="flex flex-col gap-2 w-full">
               <label htmlFor="signup-name" className="text-sm font-medium text-gray-200">
@@ -78,24 +107,42 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                disabled={showOtp}
                 placeholder="Enter your full name"
-                className="w-full h-12 px-4 rounded-xl bg-[#121212] border border-neutral-800 focus:border-primary focus:outline-none transition-colors text-white placeholder:text-gray-600"
+                className="w-full h-12 px-4 rounded-xl bg-[#121212] border border-neutral-800 focus:border-primary focus:outline-none transition-colors text-white placeholder:text-gray-600 disabled:opacity-50"
               />
             </div>
 
             {/* ── Phone Number ── */}
             <div className="flex flex-col gap-2 w-full">
               <label htmlFor="signup-phone" className="text-sm font-medium text-gray-200">
-                Phone Number
+                Phone Number <span className="text-gray-500 text-xs">(Used for Login)</span>
               </label>
               <input
                 id="signup-phone"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter your phone number"
+                disabled={showOtp}
+                placeholder="01XXXXXXXXX"
                 maxLength={15}
-                className="w-full h-12 px-4 rounded-xl bg-[#121212] border border-neutral-800 focus:border-primary focus:outline-none transition-colors text-white placeholder:text-gray-600"
+                className="w-full h-12 px-4 rounded-xl bg-[#121212] border border-neutral-800 focus:border-primary focus:outline-none transition-colors text-white placeholder:text-gray-600 disabled:opacity-50"
+              />
+            </div>
+
+            {/* ── Email Address ── */}
+            <div className="flex flex-col gap-2 w-full">
+              <label htmlFor="signup-email" className="text-sm font-medium text-gray-200">
+                Email Address <span className="text-gray-500 text-xs">(Used for Verification)</span>
+              </label>
+              <input
+                id="signup-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={showOtp}
+                placeholder="patient@example.com"
+                className="w-full h-12 px-4 rounded-xl bg-[#121212] border border-neutral-800 focus:border-primary focus:outline-none transition-colors text-white placeholder:text-gray-600 disabled:opacity-50"
               />
             </div>
 
@@ -110,13 +157,15 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={showOtp}
                   placeholder="Create a strong password"
-                  className="w-full h-12 px-4 pr-12 rounded-xl bg-[#121212] border border-neutral-800 focus:border-primary focus:outline-none transition-colors text-white placeholder:text-gray-600"
+                  className="w-full h-12 px-4 pr-12 rounded-xl bg-[#121212] border border-neutral-800 focus:border-primary focus:outline-none transition-colors text-white placeholder:text-gray-600 disabled:opacity-50"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                  disabled={showOtp}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors disabled:opacity-50"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
@@ -132,65 +181,92 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
                 </button>
               </div>
 
-              {/* ── Password strength checklist (Absolute placeholder logic) ── */}
-              <div className="min-h-[100px] w-full">
-                {password.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {criteria.map((c) => (
-                      <li
-                        key={c.label}
-                        className={`flex items-center gap-2 text-xs transition-colors duration-200 ${
-                          c.met ? 'text-green-400' : 'text-gray-500'
-                        }`}
-                      >
-                        <span className="font-bold text-sm leading-none">{c.met ? '✓' : '✗'}</span>
-                        <span>{c.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {/* ── Password strength checklist ── */}
+              {!showOtp && (
+                <div className="min-h-[100px] w-full">
+                  {password.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {criteria.map((c) => (
+                        <li
+                          key={c.label}
+                          className={`flex items-center gap-2 text-xs transition-colors duration-200 ${
+                            c.met ? 'text-green-400' : 'text-gray-500'
+                          }`}
+                        >
+                          <span className="font-bold text-sm leading-none">{c.met ? '✓' : '✗'}</span>
+                          <span>{c.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ── Submit / Continue button ── */}
-            {!showWidget && (
+            {!showOtp && (
               <button
                 type="submit"
-                disabled={!formValid}
-                className={`w-full h-12 rounded-xl font-medium text-white transition-colors mt-2 ${
-                  formValid
+                disabled={!formValid || isSendingOtp}
+                className={`w-full h-12 rounded-xl font-medium text-white transition-colors mt-2 flex items-center justify-center gap-2 ${
+                  formValid && !isSendingOtp
                     ? 'bg-primary hover:bg-primary-hover cursor-pointer'
                     : 'bg-primary opacity-50 cursor-not-allowed'
                 }`}
               >
-                Continue
+                {isSendingOtp ? 'Sending Code...' : 'Continue'}
               </button>
             )}
-          </form>
+            
+            {/* ── OTP Section ── */}
+            {showOtp && (
+              <div className="mt-2 animate-slide-up space-y-4">
+                <div className="border-t border-neutral-800 pt-5 text-center">
+                  <h2 className="font-headline text-lg font-semibold text-white">
+                    Enter Verification Code
+                  </h2>
+                  <p className="text-gray-400 text-xs mt-1 mb-4">
+                    We sent a 6-digit code to <span className="text-primary">{email}</span>
+                  </p>
 
-          {/* ── Telegram Verification section ── */}
-          {showWidget && (
-            <div className="mt-2 animate-slide-up space-y-4">
-              <div className="border-t border-neutral-800 pt-5 text-center">
-                <h2 className="font-headline text-lg font-semibold text-white">
-                  Verify with Telegram
-                </h2>
-                <p className="text-gray-400 text-xs mt-1 mb-4">
-                  Click below to securely authenticate your account via Telegram.
-                </p>
+                  <div className="flex flex-col gap-4 items-center">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="• • • • • •"
+                      className="w-32 h-12 text-center text-xl tracking-[0.5em] rounded-xl bg-[#121212] border border-neutral-800 focus:border-primary focus:outline-none transition-colors text-white placeholder:text-gray-600"
+                    />
 
-                {isRegistering ? (
-                   <p className="text-primary text-sm font-medium animate-pulse">Creating your account...</p>
-                ) : (
-                  <TelegramLoginWidget 
-                    botName="SOS_OTP_Bot" 
-                    onAuth={handleTelegramAuth} 
-                    buttonSize="large"
-                  />
-                )}
+                    <button
+                      type="submit"
+                      disabled={otp.length < 6 || isRegistering}
+                      className="w-full h-12 rounded-xl bg-primary text-white font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {isRegistering ? 'Verifying...' : 'Verify & Create Account'}
+                    </button>
+
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm text-gray-500">
+                        {timer > 0 ? `Resend code in ${timer}s` : "Didn't receive code?"}
+                      </span>
+                      {timer === 0 && (
+                        <button
+                          type="button"
+                          onClick={handleSendOtp}
+                          disabled={isSendingOtp}
+                          className="text-sm text-primary font-medium hover:underline transition-colors"
+                        >
+                          Resend Code
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </form>
 
           {/* ── Bottom link ── */}
           <p className="text-center text-sm text-gray-500 mt-2">

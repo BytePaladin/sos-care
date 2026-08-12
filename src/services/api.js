@@ -52,11 +52,20 @@ export const api = {
     return data;
   },
 
-  register: async (name, phone, password, telegramData = null) => {
+  sendEmailOtp: async (email, name) => {
+    const res = await fetch(`${API_BASE}/auth/send-email-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name }),
+    });
+    return await handleResponse(res, 'Failed to send OTP email');
+  },
+
+  register: async (name, phone, email, password, otp) => {
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, password, telegramData }),
+      body: JSON.stringify({ name, phone, email, password, otp }),
     });
     const data = await handleResponse(res, 'Registration failed');
     if (data.token) {
