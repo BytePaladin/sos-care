@@ -71,7 +71,7 @@ const patientTriageSchema = new mongoose.Schema(
     // Review Workflow Status
     reviewStatus: {
       type: String,
-      enum: ['pending', 'contacted', 'false_positive', 'needs_review'],
+      enum: ['pending', 'contacted', 'false_positive', 'needs_review', 'reviewed'],
       default: 'pending',
       index: true,
     },

@@ -19,7 +19,7 @@ export const SEVERITY_PRIORITY = {
 };
 
 // staff review statuses used in dashboard (according to ER diagram)
-export const REVIEW_STATUSES = ['pending', 'contacted', 'false_positive', 'needs_review'];
+export const REVIEW_STATUSES = ['pending', 'contacted', 'false_positive', 'needs_review', 'reviewed'];
 
 /**
  * Safely converts any external label ("RED", "Red ", "urgent")
