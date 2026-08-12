@@ -166,6 +166,18 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
     }
   };
 
+  const handleMarkReviewed = async (patientId) => {
+    try {
+      const updated = await api.updatePatientStatus(patientId, 'reviewed', 'Marked as reviewed', null);
+      setPatients((prev) => prev.map((p) => (p.id === patientId ? updated : p)));
+      cooldownRef.current = true;
+      setTimeout(() => { cooldownRef.current = false; }, 3000);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to mark as reviewed: ' + err.message);
+    }
+  };
+
   const handleForwardPatient = async (patientId) => {
     if (!forwardTargetId) return;
 
@@ -1104,6 +1116,19 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                           className="w-full py-2.5 rounded-xl bg-primary text-on-primary font-semibold text-xs transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                           Forward Patient
+                        </button>
+                      </div>
+
+                      {/* Mark as Reviewed */}
+                      <div className="border-t dark:border-neutral-800 pt-4 space-y-2 pb-4">
+                        <span className="text-xs font-bold text-neutral-500 uppercase">4. Complete Review</span>
+                        <button
+                          onClick={() => handleMarkReviewed(selectedPatient.id)}
+                          className={`w-full py-2.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer text-center ${
+                            isDark ? 'bg-neutral-800 border-neutral-700 hover:bg-neutral-700 text-white' : 'bg-neutral-200 border-neutral-300 hover:bg-neutral-300 text-neutral-900'
+                          }`}
+                        >
+                          Mark as Reviewed
                         </button>
                       </div>
                     </div>
