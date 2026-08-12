@@ -196,6 +196,7 @@ export const getHospitalAnalytics = async (req, res) => {
     const contactedPatients = await PatientTriage.countDocuments({ reviewStatus: 'contacted' });
     const falsePositives = await PatientTriage.countDocuments({ reviewStatus: 'false_positive' });
     const needsReview = await PatientTriage.countDocuments({ reviewStatus: 'needs_review' });
+    const reviewedPatients = await PatientTriage.countDocuments({ reviewStatus: 'reviewed' });
 
     const totalChatSessions = await ChatSession.countDocuments({});
     const totalStaffActions = await StaffAction.countDocuments({});
@@ -332,6 +333,7 @@ export const getHospitalAnalytics = async (req, res) => {
         contactedPatients,
         falsePositives,
         needsReview,
+        reviewedPatients,
       },
       sessions: {
         totalChatSessions,

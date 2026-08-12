@@ -517,7 +517,8 @@ export default function AdminDashboard({ onShowToast, onLogout }) {
                     {[
                       { label: 'Pending Review', count: analytics?.triageQueue?.pendingReviews ?? 0, color: 'text-warning' },
                       { label: 'Contacted', count: analytics?.triageQueue?.contactedPatients ?? 0, color: 'text-success' },
-                      { label: 'Forwarded', count: analytics?.triageQueue?.needsReview ?? 0, color: 'text-primary' },
+                      { label: 'Reviewed', count: analytics?.triageQueue?.reviewedPatients ?? 0, color: 'text-primary' },
+                      { label: 'Forwarded', count: analytics?.triageQueue?.needsReview ?? 0, color: 'text-secondary' },
                       { label: 'Archived', count: analytics?.triageQueue?.falsePositives ?? 0, color: 'text-neutral-500' },
                     ].map((item, idx) => (
                       <div key={idx} className={`p-4 rounded-xl border ${isDark ? 'bg-[#121212] border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
