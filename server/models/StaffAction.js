@@ -36,7 +36,7 @@ const staffActionSchema = new mongoose.Schema(
     // what became the review status of the record after taking the action
     status: {
       type: String, // string enum
-      enum: ['pending', 'contacted', 'false_positive', 'needs_review'], // matches PatientTriage
+      enum: ['pending', 'contacted', 'false_positive', 'needs_review', 'reviewed'], // matches PatientTriage
       default: 'pending', // default pending
     },
 
