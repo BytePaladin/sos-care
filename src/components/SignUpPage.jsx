@@ -1,18 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { api } from '../services/api';
-import { MOCK_OTP, registeredPhones, mockUsers } from '../data/mockData';
+import TelegramLoginWidget from './TelegramLoginWidget';
 
 const SignUpPage = ({ onNavigate, onShowToast }) => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showOtp, setShowOtp] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [timer, setTimer] = useState(60);
-  const [timerActive, setTimerActive] = useState(false);
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [showWidget, setShowWidget] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   /* ── Password strength criteria ── */
   const criteria = [
@@ -26,92 +22,25 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
   const allCriteriaMet = criteria.every((c) => c.met);
   const formValid = fullName.trim() !== '' && phone.trim() !== '' && allCriteriaMet;
 
-  /* ── OTP countdown timer ── */
-  useEffect(() => {
-    if (!timerActive) return;
-    if (timer <= 0) {
-      setTimerActive(false);
-      return;
+  /* ── Telegram Auth Callback ── */
+  const handleTelegramAuth = async (telegramUser) => {
+    setIsRegistering(true);
+    try {
+      await api.register(fullName.trim(), phone.trim(), password, telegramUser);
+      onShowToast('Account created successfully! Please log in.', 'success');
+      onNavigate('login');
+    } catch (err) {
+      onShowToast(err.message || 'Failed to create account.', 'error');
+      setIsRegistering(false);
     }
-    const id = setInterval(() => setTimer((t) => t - 1), 1000);
-    return () => clearInterval(id);
-  }, [timerActive, timer]);
-
-  const formatTime = (s) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
-  const startTimer = () => {
-    setTimer(60);
-    setTimerActive(true);
-  };
-
-  /* ── Telegram OTP Logic ── */
-  const sendTelegramOtp = async () => {
-    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(newOtp);
-    setIsSendingOtp(true);
-
-    const botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-    const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
-
-    if (botToken && chatId) {
-      try {
-        const message = `🚨 *S.O.S. Care Verification*\n\nA new user is attempting to sign up.\nPhone: \`${phone}\`\n\nYour verification code is: *${newOtp}*`;
-        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' })
-        });
-        
-        if (!res.ok) {
-          console.error('Telegram API Error:', await res.text());
-          onShowToast('Failed to send OTP via Telegram.', 'error');
-        } else {
-          onShowToast('OTP sent to your Telegram!', 'success');
-        }
-      } catch (err) {
-        console.error('Network Error:', err);
-        onShowToast('Network error sending OTP.', 'error');
-      }
-    } else {
-      console.warn('Telegram credentials missing. Using MOCK_OTP / console:', newOtp);
-      onShowToast('Test Mode: Check console for OTP', 'success');
-    }
-
-    setIsSendingOtp(false);
-    setShowOtp(true);
-    startTimer();
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formValid || isSendingOtp) return;
-
-    await sendTelegramOtp();
-  };
-
-  const handleVerify = async () => {
-    const isValid = otp === generatedOtp || (!import.meta.env.VITE_TELEGRAM_BOT_TOKEN && otp === MOCK_OTP);
+    if (!formValid) return;
     
-    if (isValid) {
-      try {
-        await api.register(fullName.trim(), phone.trim(), password);
-        onShowToast('Account created successfully! Please log in.', 'success');
-        onNavigate('login');
-      } catch (err) {
-        onShowToast(err.message || 'Failed to create account.', 'error');
-      }
-    } else {
-      onShowToast('Invalid OTP. Please try again.', 'error');
-    }
-  };
-
-  const handleResend = async () => {
-    if (timer > 0 || isSendingOtp) return;
-    await sendTelegramOtp();
+    // Show the widget instead of submitting directly
+    setShowWidget(true);
   };
 
   /* ── Render ── */
@@ -224,75 +153,41 @@ const SignUpPage = ({ onNavigate, onShowToast }) => {
             </div>
 
             {/* ── Submit / Continue button ── */}
-            {!showOtp && (
+            {!showWidget && (
               <button
                 type="submit"
-                disabled={!formValid || isSendingOtp}
+                disabled={!formValid}
                 className={`w-full h-12 rounded-xl font-medium text-white transition-colors mt-2 ${
-                  formValid && !isSendingOtp
+                  formValid
                     ? 'bg-primary hover:bg-primary-hover cursor-pointer'
                     : 'bg-primary opacity-50 cursor-not-allowed'
                 }`}
               >
-                {isSendingOtp ? 'Sending OTP...' : 'Continue'}
+                Continue
               </button>
             )}
           </form>
 
-          {/* ── OTP Verification section ── */}
-          {showOtp && (
+          {/* ── Telegram Verification section ── */}
+          {showWidget && (
             <div className="mt-2 animate-slide-up space-y-4">
-              <div className="border-t border-neutral-800 pt-5">
+              <div className="border-t border-neutral-800 pt-5 text-center">
                 <h2 className="font-headline text-lg font-semibold text-white">
-                  Enter Verification Code
+                  Verify with Telegram
                 </h2>
-                <p className="text-gray-400 text-xs mt-1">
-                  A 6-digit OTP has been sent to your phone
+                <p className="text-gray-400 text-xs mt-1 mb-4">
+                  Click below to securely authenticate your account via Telegram.
                 </p>
 
-                <div className="mt-4 flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    maxLength={6}
-                    placeholder="------"
-                    className="flex-1 h-12 px-4 rounded-xl bg-[#121212] border border-neutral-800 focus:border-primary focus:outline-none transition-colors text-white text-center tracking-[0.5em] text-2xl font-mono placeholder:tracking-[0.5em]"
+                {isRegistering ? (
+                   <p className="text-primary text-sm font-medium animate-pulse">Creating your account...</p>
+                ) : (
+                  <TelegramLoginWidget 
+                    botName="SOS_OTP_Bot" 
+                    onAuth={handleTelegramAuth} 
+                    buttonSize="large"
                   />
-                  <span className="text-sm font-mono text-gray-500 tabular-nums w-14 text-center shrink-0">
-                    {formatTime(timer)}
-                  </span>
-                </div>
-
-                {/* Resend OTP */}
-                <div className="mt-2 text-right">
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={timer > 0}
-                    className={`text-xs font-medium transition-colors ${
-                      timer > 0
-                        ? 'text-gray-600 cursor-not-allowed'
-                        : 'text-primary cursor-pointer hover:underline'
-                    }`}
-                  >
-                    Resend OTP
-                  </button>
-                </div>
-
-                {/* Verify button */}
-                <button
-                  type="button"
-                  onClick={handleVerify}
-                  disabled={otp.length !== 6}
-                  className={`mt-4 w-full h-12 rounded-xl font-medium text-white transition-colors ${
-                    otp.length === 6
-                      ? 'bg-primary hover:bg-primary-hover cursor-pointer'
-                      : 'bg-primary opacity-50 cursor-not-allowed'
-                  }`}
-                >
-                  Verify
-                </button>
+                )}
               </div>
             </div>
           )}

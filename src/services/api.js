@@ -52,11 +52,11 @@ export const api = {
     return data;
   },
 
-  register: async (name, phone, password) => {
+  register: async (name, phone, password, telegramData = null) => {
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, password }),
+      body: JSON.stringify({ name, phone, password, telegramData }),
     });
     const data = await handleResponse(res, 'Registration failed');
     if (data.token) {

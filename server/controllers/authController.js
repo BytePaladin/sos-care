@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
+import crypto from 'crypto';
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'sos-care-secret-key-2026', {
@@ -93,10 +94,31 @@ export const loginUser = async (req, res) => {
 
 export const registerPatient = async (req, res) => {
   try {
-    const { name, phone, password } = req.body;
+    const { name, phone, password, telegramData } = req.body;
 
-    if (!name || !phone || !password) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (!name || !phone || !password || !telegramData) {
+      return res.status(400).json({ message: 'All fields and Telegram verification are required' });
+    }
+
+    // Verify Telegram Hash
+    const botToken = process.env.VITE_TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      return res.status(500).json({ message: 'Server configuration error: Missing Telegram Bot Token' });
+    }
+
+    const secretKey = crypto.createHash('sha256').update(botToken).digest();
+    const dataCheckArr = [];
+    for (const key in telegramData) {
+      if (key !== 'hash' && telegramData[key] !== undefined && telegramData[key] !== null) {
+        dataCheckArr.push(`${key}=${telegramData[key]}`);
+      }
+    }
+    dataCheckArr.sort();
+    const dataCheckString = dataCheckArr.join('\n');
+    const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+    if (hmac !== telegramData.hash) {
+      return res.status(401).json({ message: 'Invalid or expired Telegram authentication payload.' });
     }
 
     const userExists = await User.findOne({ phone: phone.trim() });
@@ -109,6 +131,8 @@ export const registerPatient = async (req, res) => {
       phone: phone.trim(),
       password,
       role: 'patient',
+      telegramChatId: telegramData.id.toString(),
+      telegramOptIn: true
     });
 
     if (user) {
@@ -118,6 +142,8 @@ export const registerPatient = async (req, res) => {
         name: user.name,
         phone: user.phone,
         role: user.role,
+        telegramChatId: user.telegramChatId,
+        telegramOptIn: user.telegramOptIn,
         token: generateToken(user._id),
       });
     } else {
