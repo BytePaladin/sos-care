@@ -1,10 +1,9 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
+import { Otp } from '../models/Otp.js';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
-// Temporary memory store for OTPs (for production, use Redis)
-global.otpCache = global.otpCache || {};
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'sos-care-secret-key-2026', {
@@ -104,12 +103,10 @@ export const sendEmailOtp = async (req, res) => {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   
-  global.otpCache[email.toLowerCase()] = {
-    otp,
-    expires: Date.now() + 3 * 60 * 1000
-  };
-
   try {
+    await Otp.deleteMany({ email: email.toLowerCase() }); // Clear old OTPs
+    await Otp.create({ email: email.toLowerCase(), otp });
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -151,16 +148,13 @@ export const registerPatient = async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPhone = phone.trim();
 
-    // Verify OTP
-    const cachedData = global.otpCache[cleanEmail];
-    if (!cachedData) {
-      return res.status(400).json({ message: 'No OTP requested for this email' });
+    // Verify OTP from MongoDB
+    const otpRecord = await Otp.findOne({ email: cleanEmail });
+    
+    if (!otpRecord) {
+      return res.status(400).json({ message: 'No OTP requested for this email or it has expired' });
     }
-    if (Date.now() > cachedData.expires) {
-      delete global.otpCache[cleanEmail];
-      return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
-    }
-    if (cachedData.otp !== otp) {
+    if (otpRecord.otp !== otp) {
       return res.status(400).json({ message: 'Invalid OTP' });
     }
 
@@ -180,7 +174,7 @@ export const registerPatient = async (req, res) => {
     });
 
     // Clear OTP after successful registration
-    delete global.otpCache[cleanEmail];
+    await Otp.deleteMany({ email: cleanEmail });
 
     if (user) {
       res.status(201).json({
