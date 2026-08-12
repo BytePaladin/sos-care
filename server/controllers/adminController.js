@@ -186,6 +186,158 @@ export const getHospitalAnalytics = async (req, res) => {
     const totalPatients = await User.countDocuments({ role: 'patient' });
     const totalStaff = await User.countDocuments({ role: 'staff' });
     const totalAdmins = await User.countDocuments({ role: 'admin' });
+
+    const totalScreenings = await PatientTriage.countDocuments({});
+    const redAlerts = await PatientTriage.countDocuments({ category: 'red' });
+    const yellowPriority = await PatientTriage.countDocuments({ category: 'yellow' });
+    const greenRoutine = await PatientTriage.countDocuments({ category: 'green' });
+
+    const pendingReviews = await PatientTriage.countDocuments({ reviewStatus: 'pending' });
+    const contactedPatients = await PatientTriage.countDocuments({ reviewStatus: 'contacted' });
+    const falsePositives = await PatientTriage.countDocuments({ reviewStatus: 'false_positive' });
+    const needsReview = await PatientTriage.countDocuments({ reviewStatus: 'needs_review' });
+
+    const totalChatSessions = await ChatSession.countDocuments({});
+    const totalStaffActions = await StaffAction.countDocuments({});
+
+    // ── AI vs Doctor Concordance & Clinical Accuracy Metrics ──
+    const allTriages = await PatientTriage.find({})
+      .populate('reviewedBy', 'name staffRole')
+      .populate('doctorOverride.overriddenBy', 'name staffRole')
+      .sort({ screenedAt: -1 });
+
+    const severityRank = { red: 3, yellow: 2, green: 1 };
+    let totalReviewed = 0;
+    let concordantCount = 0;
+    let escalatedCount = 0;
+    let deescalatedCount = 0;
+    let falsePositiveCount = 0;
+
+    const tierStats = {
+      red: { initialAi: 0, verified: 0, overridden: 0 },
+      yellow: { initialAi: 0, verified: 0, overridden: 0 },
+      green: { initialAi: 0, verified: 0, overridden: 0 },
+    };
+
+    const discrepancyLog = [];
+
+    allTriages.forEach((t) => {
+      const isDoctorOverridden = Boolean(t.doctorOverride?.isOverridden);
+      const isFalsePositive = t.reviewStatus === 'false_positive';
+      const isReviewed = t.reviewStatus !== 'pending' || isDoctorOverridden;
+
+      // The AI's baseline tier before any human doctor intervention:
+      // If overridden, check previousCategory first, then initialCategory, then mlLabel
+      let aiTier;
+      if (isDoctorOverridden) {
+        aiTier = (t.doctorOverride?.previousCategory || t.initialCategory || t.mlLabel || 'green').toLowerCase();
+      } else {
+        aiTier = (t.initialCategory || t.finalLabel || t.category || t.mlLabel || 'green').toLowerCase();
+      }
+
+      const finalTier = (t.finalLabel || t.category || 'green').toLowerCase();
+
+      if (tierStats[aiTier]) {
+        tierStats[aiTier].initialAi += 1;
+      }
+
+      if (isReviewed) {
+        totalReviewed += 1;
+        const prevRank = severityRank[aiTier] || 1;
+        const currRank = severityRank[finalTier] || 1;
+
+        if (isFalsePositive) {
+          falsePositiveCount += 1;
+          if (tierStats[aiTier]) tierStats[aiTier].overridden += 1;
+          discrepancyLog.push({
+            id: t._id.toString(),
+            patientName: t.patientName,
+            patientPhone: t.patientPhone,
+            aiCategory: aiTier,
+            doctorCategory: 'false_positive',
+            type: 'FALSE_POSITIVE',
+            doctorName: t.reviewedBy?.name || 'Attending Doctor',
+            date: t.reviewedAt || t.screenedAt,
+            comment: t.reviewComment || 'Flagged as non-urgent false positive',
+          });
+        } else if (isDoctorOverridden && prevRank !== currRank) {
+          if (currRank > prevRank) {
+            escalatedCount += 1;
+            discrepancyLog.push({
+              id: t._id.toString(),
+              patientName: t.patientName,
+              patientPhone: t.patientPhone,
+              aiCategory: aiTier,
+              doctorCategory: finalTier,
+              type: 'ESCALATED',
+              doctorName: t.doctorOverride?.overriddenByName || t.reviewedBy?.name || 'Attending Doctor',
+              date: t.doctorOverride?.overriddenAt || t.reviewedAt || t.screenedAt,
+              comment: t.doctorOverride?.reason || t.reviewComment || `Escalated from ${aiTier.toUpperCase()} to ${finalTier.toUpperCase()}`,
+            });
+          } else {
+            deescalatedCount += 1;
+            discrepancyLog.push({
+              id: t._id.toString(),
+              patientName: t.patientName,
+              patientPhone: t.patientPhone,
+              aiCategory: aiTier,
+              doctorCategory: finalTier,
+              type: 'DE-ESCALATED',
+              doctorName: t.doctorOverride?.overriddenByName || t.reviewedBy?.name || 'Attending Doctor',
+              date: t.doctorOverride?.overriddenAt || t.reviewedAt || t.screenedAt,
+              comment: t.doctorOverride?.reason || t.reviewComment || `De-escalated from ${aiTier.toUpperCase()} to ${finalTier.toUpperCase()}`,
+            });
+          }
+          if (tierStats[aiTier]) tierStats[aiTier].overridden += 1;
+        } else {
+          // Concordant (either reviewed with same tier, or overridden back to same rank)
+          concordantCount += 1;
+          if (tierStats[aiTier]) tierStats[aiTier].verified += 1;
+        }
+      }
+    });
+
+    const overallConcordanceRate = totalReviewed > 0
+      ? Number(((concordantCount / totalReviewed) * 100).toFixed(1))
+      : 100.0;
+    const escalationRate = totalReviewed > 0
+      ? Number(((escalatedCount / totalReviewed) * 100).toFixed(1))
+      : 0.0;
+    const deescalationRate = totalReviewed > 0
+      ? Number((((deescalatedCount + falsePositiveCount) / totalReviewed) * 100).toFixed(1))
+      : 0.0;
+
+    const calcTierRate = (tier) => {
+      const totalTierReviewed = tier.verified + tier.overridden;
+      return totalTierReviewed > 0
+        ? Number(((tier.verified / totalTierReviewed) * 100).toFixed(1))
+        : 100.0;
+    };
+
+    res.json({
+      users: {
+        totalPatients,
+        totalStaff,
+        totalAdmins,
+        totalUsers: totalPatients + totalStaff + totalAdmins,
+      },
+      screenings: {
+        totalScreenings,
+        redAlerts,
+        yellowPriority,
+        greenRoutine,
+      },
+      triageQueue: {
+        pendingReviews,
+        contactedPatients,
+        falsePositives,
+        needsReview,
+      },
+      sessions: {
+        totalChatSessions,
+      },
+      audit: {
+        totalStaffActions,
       },
       concordance: {
         totalReviewed,

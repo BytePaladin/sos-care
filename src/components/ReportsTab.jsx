@@ -43,7 +43,6 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
                 <ul className="space-y-2">
                   <li>Total Patients: {analytics?.users?.totalPatients || 0}</li>
                   <li>Triage Queue Contacted: {analytics?.triageQueue?.contactedPatients || 0}</li>
-                  <li>Triage Queue Reviewed: {analytics?.triageQueue?.reviewedPatients || 0}</li>
                 </ul>
               </div>
               <div className={`border p-4 rounded ${isDark ? 'bg-neutral-800 border-neutral-700' : 'bg-gray-50 border-gray-200'}`}>
