@@ -739,22 +739,27 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                   </div>
 
                   {selectedPatient.chatHistory && selectedPatient.chatHistory.length > 0 ? (
-                    selectedPatient.chatHistory.map((msg, idx) => (
-                      <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-                        {msg.role !== 'user' && (
+                    selectedPatient.chatHistory.map((msg, idx) => {
+                      // backend `sender` পাঠায় ('user' | 'bot'); পুরনো localStorage
+                      // record-এ `role` ছিল — দুইটাই support করা হচ্ছে।
+                      const isPatient = (msg.sender ?? msg.role) === 'user';
+                      return (
+                      <div key={idx} className={`flex ${isPatient ? 'justify-end' : 'justify-start'} gap-2`}>
+                        {!isPatient && (
                           <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                             🤖
                           </div>
                         )}
                         <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed shadow-sm ${
-                          msg.role === 'user'
+                          isPatient
                             ? (isDark ? 'bg-primary-container text-on-primary-container' : 'bg-primary/10 text-primary')
                             : (isDark ? 'bg-[#202124] text-gray-200' : 'bg-[#f1f3f4] text-neutral-800')
                         }`}>
                           <p className="whitespace-pre-wrap">{msg.text}</p>
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <p className="text-center text-xs text-neutral-500 italic py-8">No screener log recorded.</p>
                   )}
@@ -856,6 +861,85 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                       </p>
                       {selectedPatient.doctorOverride.reason && (
                         <p className="italic text-neutral-300">"{selectedPatient.doctorOverride.reason}"</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Why this ranking ──────────────────────────────────
+                      Explains the automated decision instead of asserting it.
+                      Two independent reasons are possible and they are shown
+                      separately: a safety-net rule (deterministic, forces RED)
+                      and the classifier's own weighted terms. A clinician can
+                      see which layer acted, and on what evidence. */}
+                  {(selectedPatient.aiAnalysis?.symptomTags?.length > 0 ||
+                    selectedPatient.aiAnalysis?.modelEvidence?.length > 0) && (
+                    <div className={`pt-3 mt-1 border-t ${isDark ? 'border-neutral-800' : 'border-neutral-200'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                          Why this ranking
+                        </span>
+                        {typeof selectedPatient.aiAnalysis?.confidenceScore === 'number' &&
+                          selectedPatient.aiAnalysis.confidenceScore > 0 && (
+                            <span className="text-[10px] text-neutral-500 font-mono">
+                              {Math.round(selectedPatient.aiAnalysis.confidenceScore * 100)}% confidence
+                            </span>
+                          )}
+                      </div>
+
+                      {/* Safety net: deterministic, and the reason RED was forced */}
+                      {selectedPatient.aiAnalysis?.symptomTags?.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-[10px] text-error font-semibold mb-1.5 flex items-center gap-1">
+                            <span>🛡</span> Safety-net rule triggered — escalated to RED
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedPatient.aiAnalysis.symptomTags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-error/15 text-error border border-error/30"
+                              >
+                                {String(tag).replace(/_/g, ' ').toLowerCase()}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Classifier evidence: the terms and their relative pull */}
+                      {selectedPatient.aiAnalysis?.modelEvidence?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] text-neutral-500 font-semibold mb-1.5">
+                            Terms that drove the model's decision
+                          </p>
+                          <div className="space-y-1">
+                            {selectedPatient.aiAnalysis.modelEvidence.slice(0, 5).map((f, i) => {
+                              const max = selectedPatient.aiAnalysis.modelEvidence[0]?.weight || 1;
+                              const pct = Math.max(6, Math.round((f.weight / max) * 100));
+                              return (
+                                <div key={`${f.term}-${i}`} className="flex items-center gap-2">
+                                  <span className="text-[11px] font-mono truncate w-28 shrink-0 text-on-surface" title={f.term}>
+                                    {f.term}
+                                  </span>
+                                  <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-neutral-800' : 'bg-neutral-200'}`}>
+                                    <div
+                                      className={`h-full rounded-full ${
+                                        selectedPatient.category === 'red'
+                                          ? 'bg-error'
+                                          : selectedPatient.category === 'yellow'
+                                          ? 'bg-warning'
+                                          : 'bg-success'
+                                      }`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] text-neutral-500 font-mono w-9 text-right shrink-0">
+                                    {f.weight.toFixed(2)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}

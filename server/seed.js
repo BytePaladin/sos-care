@@ -1,5 +1,6 @@
+import './config/env.js'; // .env সবার আগে load
+
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dns from 'dns';
@@ -18,17 +19,13 @@ import { ChatSession } from './models/ChatSession.js';
 import { StaffAction } from './models/StaffAction.js';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '../.env.local') });
-dotenv.config();
-
-const seedDB = async () => {
-  try {
-    const connStr = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/sos-care';
-    console.log(`[Seed] Connecting to ${connStr}...`);
-    await mongoose.connect(connStr);
-
+/**
+ * সব demo data তৈরি করে। ধরে নেয় mongoose আগেই connected.
+ * index.js (in-memory Mongo auto-seed) এবং CLI — দুই জায়গা থেকেই ব্যবহার হয়।
+ */
+export const seedDatabase = async () => {
+  {
     console.log('[Seed] Clearing existing collections...');
     await User.deleteMany({});
     await PatientTriage.deleteMany({});
@@ -40,6 +37,7 @@ const seedDB = async () => {
     // 2 Seeded Bangladeshi Hospital Admins
     const admin1 = await User.create({
       name: 'Dr. Rafiqul Islam',
+      email: 'rafiqul.islam@soscare.test',
       phone: '01711112222',
       password: 'admin123',
       role: 'admin',
@@ -48,6 +46,7 @@ const seedDB = async () => {
 
     const admin2 = await User.create({
       name: 'Farhana Chowdhury',
+      email: 'farhana.chowdhury@soscare.test',
       phone: '01811113333',
       password: 'admin123',
       role: 'admin',
@@ -56,6 +55,7 @@ const seedDB = async () => {
 
     const patientUser = await User.create({
       name: 'Kamrul Hasan',
+      email: 'kamrul.hasan@soscare.test',
       phone: '01700000000',
       password: 'Demo@1234',
       role: 'patient',
@@ -63,6 +63,7 @@ const seedDB = async () => {
 
     const staff1 = await User.create({
       name: 'Dr. Nusrat Jahan',
+      email: 'nusrat.jahan@soscare.test',
       phone: '01800000000',
       password: 'Staff@1234',
       role: 'staff',
@@ -73,6 +74,7 @@ const seedDB = async () => {
 
     const staff2 = await User.create({
       name: 'Dr. Tanvir Ahmed',
+      email: 'tanvir.ahmed@soscare.test',
       phone: '01900000000',
       password: 'Staff@1234',
       role: 'staff',
@@ -212,11 +214,22 @@ const seedDB = async () => {
     });
 
     console.log('[Seed] Success! Database seeded cleanly.');
-    process.exit(0);
-  } catch (error) {
-    console.error(`[Seed Error] ${error.message}`);
-    process.exit(1);
   }
 };
 
-seedDB();
+// সরাসরি `npm run seed` দিয়ে চালালে নিজেই connect করে নেবে।
+// (in-memory Mongo ব্যবহার করলে এর দরকার নেই — index.js startup-এ auto-seed করে,
+//  কারণ আলাদা process আলাদা in-memory instance পেত।)
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;
+if (isDirectRun) {
+  const connStr = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/sos-care';
+  console.log(`[Seed] Connecting to ${connStr}...`);
+  mongoose
+    .connect(connStr)
+    .then(seedDatabase)
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(`[Seed Error] ${error.message}`);
+      process.exit(1);
+    });
+}

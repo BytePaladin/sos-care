@@ -46,6 +46,7 @@ export const evaluateMessage = async (text) => {
     mlLabel: mlResult.label, // what the classifier said, kept for audit
     confidence: mlResult.confidence, // how sure the classifier was
     modelSource: mlResult.source, // ml-service or fallback-heuristic
+    topFeatures: mlResult.topFeatures || [], // which words drove the model's choice
     ruleOverride: safetyResult.triggered, // did the safety net fire
     matchedKeywords: safetyResult.matchedKeywords, // which rules matched
     finalLabel, // the label the queue is ordered by
@@ -80,4 +81,12 @@ export const buildAiAnalysis = (text, decision) => ({
   symptomTags: decision.matchedKeywords, // tags caught by safety-net
   confidenceScore: Number(decision.confidence?.toFixed?.(2) ?? decision.confidence ?? 0), // 2 decimals
   riskFactors: decision.ruleOverride ? ['Safety-net keyword override'] : [], // mentioned if overridden
+  // The terms that drove the classifier towards this tier. Stored so a clinician
+  // can see *why* a case was ranked where it was, rather than being asked to
+  // trust an unexplained label — and so the reasoning is preserved in the audit
+  // trail even after the model is retrained.
+  modelEvidence: (decision.topFeatures || []).map((f) => ({
+    term: f.term,
+    weight: Number(Number(f.weight).toFixed(3)),
+  })),
 });

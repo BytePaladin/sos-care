@@ -2,6 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../services/api';
 
+// Colours for the severity badge on a screened reply. Keyed by the lowercase
+// label the backend returns (see server/utils/severity.js).
+const SEVERITY_BADGE = {
+  green: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  yellow: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+  red: 'bg-red-500/15 text-red-400 border border-red-500/30',
+};
+
 export default function Dashboard({ userName, onOpenSettings, onLogout }) {
   const { isDark } = useTheme();
   
@@ -416,6 +424,26 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">
                       {msg.text}
                     </p>
+
+                    {/* Severity assigned by the backend (ML classifier + safety net).
+                        Shown so the screening result is visible in the chat itself,
+                        not only on the staff dashboard. */}
+                    {msg.metadata?.finalLabel && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${SEVERITY_BADGE[String(msg.metadata.finalLabel).toLowerCase()] || SEVERITY_BADGE.yellow}`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                          {String(msg.metadata.finalLabel).toUpperCase()}
+                        </span>
+
+                        {msg.metadata.ruleOverride && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-500/15 text-red-400 border border-red-500/30">
+                            safety net → forced RED
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ),

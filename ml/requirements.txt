@@ -1,0 +1,10 @@
+# S.O.S. ML microservice dependencies (spec.md 7).
+# Python 3.10+ (developed on 3.14). CPU only -- no GPU required.
+scikit-learn>=1.3
+pandas>=2.0
+numpy>=1.24
+scipy>=1.10
+joblib>=1.3
+flask>=3.0
+flask-cors>=4.0
+pytest>=7.0

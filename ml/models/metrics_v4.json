@@ -1,0 +1,297 @@
+{
+  "dataset": "dataset_v4.csv",
+  "selected_model": "linsvm",
+  "labels": [
+    "GREEN",
+    "YELLOW",
+    "RED"
+  ],
+  "n_samples": 1324,
+  "n_templates": 202,
+  "class_counts": {
+    "GREEN": 324,
+    "YELLOW": 500,
+    "RED": 500
+  },
+  "protocol": {
+    "split": "GroupShuffleSplit by template, test_size=0.3",
+    "selection": "StratifiedGroupKFold(5) on the training set only",
+    "selection_criterion": "hybrid RED recall, macro-F1 as tiebreak",
+    "final_model": "refit on all data after evaluation"
+  },
+  "n_train": 916,
+  "n_test": 408,
+  "tuned_params": {
+    "logreg": {
+      "clf__C": "3",
+      "features__word__min_df": "1"
+    },
+    "linsvm": {
+      "clf__estimator__C": "0.5",
+      "features__word__min_df": "1"
+    }
+  },
+  "red_threshold": null,
+  "headline_test_metrics": {
+    "accuracy": 0.8333333333333334,
+    "macro_f1": 0.8512920322531631,
+    "red_recall": 0.7771084337349398,
+    "per_class": {
+      "GREEN": {
+        "precision": 1.0,
+        "recall": 0.9489795918367347,
+        "f1-score": 0.9738219895287958,
+        "support": 98.0
+      },
+      "YELLOW": {
+        "precision": 0.7375,
+        "recall": 0.8194444444444444,
+        "f1-score": 0.7763157894736842,
+        "support": 144.0
+      },
+      "RED": {
+        "precision": 0.832258064516129,
+        "recall": 0.7771084337349398,
+        "f1-score": 0.8037383177570093,
+        "support": 166.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        93,
+        5,
+        0
+      ],
+      [
+        0,
+        118,
+        26
+      ],
+      [
+        0,
+        37,
+        129
+      ]
+    ],
+    "hybrid": {
+      "accuracy": 0.8578431372549019,
+      "red_recall": 0.8373493975903614,
+      "red_rescued_by_safety_net": 10,
+      "red_missed_by_both_layers": 27,
+      "confusion_matrix": [
+        [
+          93,
+          5,
+          0
+        ],
+        [
+          0,
+          118,
+          26
+        ],
+        [
+          0,
+          27,
+          139
+        ]
+      ]
+    }
+  },
+  "cv_results_on_train": {
+    "logreg": {
+      "accuracy": 0.7489082969432315,
+      "macro_f1": 0.7732413965611776,
+      "red_recall": 0.5538922155688623,
+      "per_class": {
+        "GREEN": {
+          "precision": 1.0,
+          "recall": 0.9823008849557522,
+          "f1-score": 0.9910714285714286,
+          "support": 226.0
+        },
+        "YELLOW": {
+          "precision": 0.6488372093023256,
+          "recall": 0.7837078651685393,
+          "f1-score": 0.7099236641221374,
+          "support": 356.0
+        },
+        "RED": {
+          "precision": 0.7007575757575758,
+          "recall": 0.5538922155688623,
+          "f1-score": 0.6187290969899666,
+          "support": 334.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          222,
+          2,
+          2
+        ],
+        [
+          0,
+          279,
+          77
+        ],
+        [
+          0,
+          149,
+          185
+        ]
+      ],
+      "hybrid": {
+        "accuracy": 0.8438864628820961,
+        "red_recall": 0.8143712574850299,
+        "red_rescued_by_safety_net": 87,
+        "red_missed_by_both_layers": 62,
+        "confusion_matrix": [
+          [
+            222,
+            2,
+            2
+          ],
+          [
+            0,
+            279,
+            77
+          ],
+          [
+            0,
+            62,
+            272
+          ]
+        ]
+      }
+    },
+    "linsvm": {
+      "accuracy": 0.7565502183406113,
+      "macro_f1": 0.7803677325582866,
+      "red_recall": 0.5688622754491018,
+      "per_class": {
+        "GREEN": {
+          "precision": 1.0,
+          "recall": 0.9823008849557522,
+          "f1-score": 0.9910714285714286,
+          "support": 226.0
+        },
+        "YELLOW": {
+          "precision": 0.65807962529274,
+          "recall": 0.7893258426966292,
+          "f1-score": 0.7177522349936143,
+          "support": 356.0
+        },
+        "RED": {
+          "precision": 0.7116104868913857,
+          "recall": 0.5688622754491018,
+          "f1-score": 0.632279534109817,
+          "support": 334.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          222,
+          2,
+          2
+        ],
+        [
+          0,
+          281,
+          75
+        ],
+        [
+          0,
+          144,
+          190
+        ]
+      ],
+      "hybrid": {
+        "accuracy": 0.8460698689956332,
+        "red_recall": 0.8143712574850299,
+        "red_rescued_by_safety_net": 82,
+        "red_missed_by_both_layers": 62,
+        "confusion_matrix": [
+          [
+            222,
+            2,
+            2
+          ],
+          [
+            0,
+            281,
+            75
+          ],
+          [
+            0,
+            62,
+            272
+          ]
+        ]
+      }
+    }
+  },
+  "leaky_random_split_for_comparison": {
+    "accuracy": 0.9939577039274925,
+    "macro_f1": 0.9944833762978527,
+    "red_recall": 0.994,
+    "per_class": {
+      "GREEN": {
+        "precision": 0.9969230769230769,
+        "recall": 1.0,
+        "f1-score": 0.9984591679506933,
+        "support": 324.0
+      },
+      "YELLOW": {
+        "precision": 0.9939759036144579,
+        "recall": 0.99,
+        "f1-score": 0.9919839679358717,
+        "support": 500.0
+      },
+      "RED": {
+        "precision": 0.9920159680638723,
+        "recall": 0.994,
+        "f1-score": 0.993006993006993,
+        "support": 500.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        324,
+        0,
+        0
+      ],
+      [
+        1,
+        495,
+        4
+      ],
+      [
+        0,
+        3,
+        497
+      ]
+    ],
+    "hybrid": {
+      "accuracy": 0.9947129909365559,
+      "red_recall": 0.996,
+      "red_rescued_by_safety_net": 1,
+      "red_missed_by_both_layers": 2,
+      "confusion_matrix": [
+        [
+          324,
+          0,
+          0
+        ],
+        [
+          1,
+          495,
+          4
+        ],
+        [
+          0,
+          2,
+          498
+        ]
+      ]
+    }
+  }
+}

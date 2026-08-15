@@ -7,12 +7,11 @@
  * Week 6: health check also reports the ML circuit-breaker state.
  */
 
+import './config/env.js'; // ⚠️ সবার আগে — অন্য module module-load সময় process.env পড়ে
+
 import express from 'express'; // web framework
 import cors from 'cors'; // allow frontend calls
-import dotenv from 'dotenv'; // for reading .env
-import path from 'path'; // for creating paths
-import { fileURLToPath } from 'url'; // to get __dirname in ESM
-import { connectDB } from './config/db.js'; // MongoDB connection
+import { connectDB, isUsingInMemoryMongo } from './config/db.js'; // MongoDB connection
 
 import authRoutes from './routes/authRoutes.js'; // /api/auth
 import triageRoutes from './routes/triageRoutes.js'; // /api/triage
@@ -23,12 +22,8 @@ import { notFound, errorHandler } from './middleware/errorHandler.js'; // error 
 import { pingMlService, getMlBreakerState } from './services/mlClient.js'; // check if ML service is alive
 import { getSafetyNetRuleTags } from './services/safetyNet.js'; // how many rules exist
 
-const __filename = fileURLToPath(import.meta.url); // current file path
-const __dirname = path.dirname(__filename); // current directory
-
-// Load environment variables — first root .env.local, then server .env
-dotenv.config({ path: path.join(__dirname, '../.env.local') }); // root override file
-dotenv.config(); // server/.env
+// NOTE: .env loading lives in ./config/env.js (imported first, above). It must
+// run before any module that reads process.env at load time — see that file.
 
 const app = express(); // express app
 const PORT = process.env.PORT || 5000; // port to run on
@@ -38,10 +33,17 @@ if (!process.env.JWT_SECRET) {
   console.warn('[Warn] JWT_SECRET is not set — falling back to the default dev secret.'); // must set in production
 }
 if (!process.env.MONGODB_URI) {
-  console.warn('[Warn] MONGODB_URI is not set — falling back to local mongodb://127.0.0.1:27017/sos-care');
+  console.log('[Info] MONGODB_URI is not set — an in-memory MongoDB will be started and seeded for local demo use.');
 }
 
-connectDB(); // start MongoDB connection
+// MongoDB connection. When MONGODB_URI is not set, config/db.js starts an
+// in-memory MongoDB, which is empty on every restart — so it is seeded once
+// here. With a real MONGODB_URI (Atlas / deployment) nothing is seeded.
+await connectDB();
+if (isUsingInMemoryMongo()) {
+  const { seedDatabase } = await import('./seed.js');
+  await seedDatabase();
+}
 
 // ── Middleware ──
 app.use(cors()); // allow all origins (sufficient for demo)

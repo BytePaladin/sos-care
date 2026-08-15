@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Serialized model binaries are regenerable via training/train.py -- don't commit.
+# metrics.json (human-readable results) IS committed, so it's excluded from this ignore.
+models/*.joblib
