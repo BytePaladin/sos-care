@@ -61,19 +61,13 @@ def predict_route():
         return jsonify({"error": str(e)}), 503
 
 
-# Warm the model at import time, not just under __main__. Production servers
-# (gunicorn) import this module rather than executing it, so loading here is
-# what keeps the first real request from paying the load cost -- and what makes
-# /health report modelLoaded=true immediately after a deploy.
-try:
-    predict.load_model()
-    print("Model loaded.")
-except FileNotFoundError as exc:  # not trained yet -- start anyway and say so
-    print(f"WARNING: {exc}")
-
-
 if __name__ == "__main__":
-    # PORT is what Render and most PaaS hosts inject; ML_PORT is the local
-    # convention. Falls back to 5001 so the documented local setup is unchanged.
-    port = int(os.environ.get("PORT") or os.environ.get("ML_PORT") or 5001)
+    # Warm the model at startup so /health reports true and the first request
+    # isn't slow. If it isn't trained yet, start anyway and report modelLoaded=false.
+    try:
+        predict.load_model()
+        print("Model loaded.")
+    except FileNotFoundError as e:
+        print(f"WARNING: {e}")
+    port = int(os.environ.get("ML_PORT", "5001"))
     app.run(host="0.0.0.0", port=port, debug=False)
