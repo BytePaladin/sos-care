@@ -108,6 +108,77 @@ const CRITICAL_RULES = [
     ],
   },
 
+  // ── Colloquial phrasings (v4) ───────────────────────────────────────────
+  // Evaluating the model on hand-written messages showed these rules were
+  // written in clinical register and missed ordinary patient language for the
+  // same emergencies — "chest pain" was caught, "a weight on my chest" was not.
+  // These stay deliberately narrow: "pee stopped" is anuria, but "peeing less"
+  // is a watch-level symptom and must stay YELLOW rather than being swept into
+  // RED. Mirrored in ml/safety_net.py and pinned by the parity test.
+  {
+    tag: 'ANURIA_LAY',
+    patterns: [
+      /\b(?:pee|wee|urine|water)\s*(?:has |have )?(?:completely |totally )?stopped\b/i,
+      /\bstopped (?:peeing|weeing|passing water)\b/i,
+      /\bnothing (?:comes|came|will come) out\b[^.!?]{0,25}\b(?:pee|wee|toilet|urinate|bladder)\b/i,
+      /\bno wee\b/i,
+      /\bcan(?:'|’)?t (?:pee|wee)\b/i,
+      /\bcannot (?:pee|wee)\b/i,
+      /\bhaven(?:'|’)?t (?:been able to )?(?:pee|wee|go for a wee)\b/i,
+      /\bwater works have stopped\b/i,
+      /\bcannot empty my bladder\b/i,
+    ],
+  },
+  {
+    tag: 'BREATHING_LAY',
+    patterns: [
+      /\bcan(?:'|’)?t (?:get|catch|take) (?:a |my |enough )?(?:full )?breath\b/i,
+      /\bcan(?:'|’)?t get enough air\b/i,
+      /\bfighting for air\b/i,
+      /\bstruggling (?:to get|for) (?:my )?breath\b/i,
+      /\bout of breath\b[^.!?]{0,20}\b(?:sitting|resting|still|lying)\b/i,
+      /\bbreathless\b[^.!?]{0,25}\b(?:sitting|resting|still|room|door)\b/i,
+    ],
+  },
+  {
+    tag: 'CHEST_PAIN_LAY',
+    patterns: [
+      /\b(?:heavy|heaviness|weight|tight band|band)\b[^.!?]{0,20}\b(?:on|across|around|in) (?:my )?chest\b/i,
+      /\bchest feels (?:squeezed|crushed|tight and heavy|heavy)\b/i,
+      /\bpressure across (?:my )?chest\b/i,
+      /\bpain (?:across|in) (?:my )?chest\b[^.!?]{0,25}\b(?:jaw|arm|shoulder)\b/i,
+      /\bspreading (?:up )?to my (?:jaw|arm)\b/i,
+    ],
+  },
+  {
+    tag: 'BLOOD_IN_URINE_LAY',
+    patterns: [
+      /\bred in the toilet\b/i,
+      /\btoilet water went red\b/i,
+      /\bdark red\b[^.!?]{0,15}\b(?:urine|pee|water)\b/i,
+      /\bclots\b[^.!?]{0,25}\b(?:pee|urine|pass water|passing water)\b/i,
+      /\burine is the colour of blood\b/i,
+    ],
+  },
+  {
+    tag: 'VOMITING_BLOOD_LAY',
+    patterns: [
+      /\bcoffee grounds?\b/i,
+      /\bbrought up\b[^.!?]{0,25}\bblood\b/i,
+      /\blike old blood\b/i,
+    ],
+  },
+  {
+    tag: 'COLLAPSE_LAY',
+    patterns: [
+      /\bkeeled over\b/i,
+      /\bcame round on the floor\b/i,
+      /\bI collapsed\b/i,
+      /\bfound me\b[^.!?]{0,20}\b(?:shaking|unresponsive)\b/i,
+      /\bwas unresponsive\b/i,
+    ],
+  },
+
   // ── Bengali rules (Week 5) ──────────────────────────────────────────────
   // Patients at a Bangladeshi kidney hospital write in Bengali. An
   // English-only safety net would silently fail to escalate them, which is

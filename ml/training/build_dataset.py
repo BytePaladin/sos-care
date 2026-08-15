@@ -189,6 +189,60 @@ RED_SUBTLE = [
     "I have severe abdominal pain that won't go away {t}",
 ]
 
+# --- RED (colloquial, added in v4) -----------------------------------------
+# Evaluation on hand-written messages showed the model failing on ordinary
+# patient language: it recognised "I have not passed urine" but not "my pee has
+# stopped", and "chest pain" but not "a weight on my chest". Clinical wording was
+# over-represented in v1-v3 and lay wording barely appeared at all.
+#
+# These teach the everyday vocabulary for the same emergencies. They are written
+# independently of the evaluation sets -- the point is to cover the *register*,
+# not to memorise the test sentences.
+RED_COLLOQUIAL = [
+    "I have not been able to pee {t}",
+    "nothing comes out when I try to pee {t}",
+    "my bladder feels full but nothing will come {t}",
+    "I cannot empty my bladder {t}",
+    "I am badly out of breath {t}",
+    "I get breathless just walking across the room {t}",
+    "I cannot get a full breath in {t}",
+    "my chest feels squeezed {t}",
+    "there is pressure across my chest {t}",
+    "my chest feels tight and heavy {t}",
+    "there is red in the toilet after I pee {t}",
+    "I am passing dark red urine {t}",
+    "my urine is the colour of blood {t}",
+    "I collapsed {t}",
+    "my family said I was unresponsive {t}",
+    "I brought up blood {t}",
+    "I have the most severe headache I have ever felt {t}",
+    "I am so swollen that I cannot sleep lying down {t}",
+    "I am too weak to stand up {t}",
+]
+
+# --- YELLOW (colloquial, added in v4) ---
+# The same register problem applied to watch-level symptoms, and RED/YELLOW
+# confusion was the largest error in v3. These give the model everyday phrasing
+# for symptoms that are concerning but not emergencies, so the boundary is
+# learned from language patients actually use.
+YELLOW_COLLOQUIAL = [
+    "my ankles puff up by the evening {t}",
+    "I have had no energy at all {t}",
+    "food does not taste right {t}",
+    "I have gone off my food {t}",
+    "I pass water less often than I used to {t}",
+    "there is froth in my urine {t}",
+    "my skin itches badly {t}",
+    "I have a nagging ache in my side {t}",
+    "my blood pressure readings are higher than normal {t}",
+    "I get cramp in my legs at night {t}",
+    "I have felt feverish {t}",
+    "I go lightheaded when I stand up {t}",
+    "my face is puffy in the mornings {t}",
+    "my stomach feels bloated after meals {t}",
+    "I have been sleeping badly {t}",
+]
+
 # --- YELLOW: context-dependent kidney warning signs; must NOT contain a
 #     safety-net phrase. ---
 YELLOW = [
@@ -322,8 +376,8 @@ def _gen_green(templates, openers, lang="en"):
 def build(out_path, target_per_class):
     rng = random.Random(SEED)
 
-    red = _gen_symptom(RED_CORE + RED_SUBTLE, CONTEXTS, TIMES)
-    yellow = _gen_symptom(YELLOW, CONTEXTS, TIMES)
+    red = _gen_symptom(RED_CORE + RED_SUBTLE + RED_COLLOQUIAL, CONTEXTS, TIMES)
+    yellow = _gen_symptom(YELLOW + YELLOW_COLLOQUIAL, CONTEXTS, TIMES)
     green = _gen_green(GREEN, GREENERS)
 
     # Bengali pools (v3). Merged into the same tiers so the model learns one

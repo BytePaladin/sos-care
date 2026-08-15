@@ -14,6 +14,7 @@ import os
 import sys
 
 import joblib
+import numpy as np
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)  # so the pickled vectorizer can import preprocess.clean_text
@@ -72,7 +73,22 @@ def explain_prediction(text: str, top_n: int = 5) -> list:
     """
     model = load_model()
     clf = model.named_steps["clf"]
-    if not hasattr(clf, "coef_"):
+
+    # A calibrated SVM wraps the linear model, so the coefficients live one
+    # level down. Each calibration fold keeps its own copy; averaging them
+    # recovers the effective weights. Without this the explanation panel would
+    # silently go blank whenever the SVM is the selected model.
+    if not hasattr(clf, "coef_") and hasattr(clf, "calibrated_classifiers_"):
+        inner = [c.estimator for c in clf.calibrated_classifiers_
+                 if hasattr(getattr(c, "estimator", None), "coef_")]
+        if not inner:
+            return []
+        coefs = np.mean([e.coef_ for e in inner], axis=0)
+        classes = list(clf.classes_)
+    elif hasattr(clf, "coef_"):
+        coefs = clf.coef_
+        classes = list(clf.classes_)
+    else:
         return []
 
     features = model.named_steps["features"]
@@ -84,8 +100,7 @@ def explain_prediction(text: str, top_n: int = 5) -> list:
     n_word = len(word_names)
 
     predicted = str(model.predict([text])[0])
-    classes = list(clf.classes_)
-    row = clf.coef_[classes.index(predicted)] if len(classes) > 2 else clf.coef_[0]
+    row = coefs[classes.index(predicted)] if len(classes) > 2 else coefs[0]
 
     tfidf = word_vec.transform([text])
     contributions = []

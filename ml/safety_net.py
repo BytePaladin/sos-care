@@ -63,6 +63,37 @@ _CRITICAL_PATTERNS = [
     ("thunderclap_headache", r"worst headache (?:of|in) my life|"
                              r"sudden(?:ly)? severe headache|thunderclap headache|"
                              r"worst headache i'?ve ever had"),
+    # --- Colloquial phrasings (v4) ---
+    # Evaluation on hand-written messages showed the rules were written in
+    # clinical register and missed ordinary patient language for the same
+    # emergencies. These cover how people actually say it. They stay narrow:
+    # "pee/wee stopped" is anuria, but "peeing less" is not, and must remain
+    # YELLOW rather than being swept into RED.
+    ("no_urine_lay", r"\b(?:pee|wee|urine|water)\s*(?:has |have )?(?:completely |totally )?stopped\b|"
+                     r"\bstopped (?:peeing|weeing|passing water)\b|"
+                     r"\bnothing (?:comes|came|will come) out\b[^.!?]{0,25}\b(?:pee|wee|toilet|urinate|bladder)\b|"
+                     r"\bno wee\b|\bcan'?t (?:pee|wee)\b|\bcannot (?:pee|wee)\b|"
+                     r"\bhaven'?t (?:been able to )?(?:pee|wee|go for a wee)\b|"
+                     r"\bwater works have stopped\b|\bcannot empty my bladder\b"),
+    ("breathing_lay", r"\bcan'?t (?:get|catch|take) (?:a |my |enough )?(?:full )?breath\b|"
+                      r"\bcan'?t get enough air\b|\bfighting for air\b|"
+                      r"\bstruggling (?:to get|for) (?:my )?breath\b|"
+                      r"\bout of breath\b[^.!?]{0,20}\b(?:sitting|resting|still|lying)\b|"
+                      r"\bbreathless\b[^.!?]{0,25}\b(?:sitting|resting|still|room|door)\b"),
+    ("chest_pain_lay", r"\b(?:heavy|heaviness|weight|tight band|band)\b[^.!?]{0,20}\b(?:on|across|around|in) (?:my )?chest\b|"
+                       r"\bchest feels (?:squeezed|crushed|tight and heavy|heavy)\b|"
+                       r"\bpressure across (?:my )?chest\b|"
+                       r"\bpain (?:across|in) (?:my )?chest\b[^.!?]{0,25}\b(?:jaw|arm|shoulder)\b|"
+                       r"\bspreading (?:up )?to my (?:jaw|arm)\b"),
+    ("blood_in_urine_lay", r"\bred in the toilet\b|\btoilet water went red\b|"
+                           r"\bdark red\b[^.!?]{0,15}\b(?:urine|pee|water)\b|"
+                           r"\bclots\b[^.!?]{0,25}\b(?:pee|urine|pass water|passing water)\b|"
+                           r"\burine is the colour of blood\b"),
+    ("vomiting_blood_lay", r"\bcoffee grounds?\b|\bbrought up\b[^.!?]{0,25}\bblood\b|"
+                           r"\blike old blood\b"),
+    ("collapse_lay", r"\bkeeled over\b|\bcame round on the floor\b|\bI collapsed\b|"
+                     r"\bfound me\b[^.!?]{0,20}\b(?:shaking|unresponsive)\b|"
+                     r"\bwas unresponsive\b"),
     # --- Bengali (Week 5) ---
     # Patients at a Bangladeshi kidney hospital write in Bengali, and an
     # English-only safety net would silently fail to escalate them. These

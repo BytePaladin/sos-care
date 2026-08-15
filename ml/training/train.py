@@ -39,11 +39,13 @@ import sys
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import (
-    GroupShuffleSplit, StratifiedGroupKFold, StratifiedKFold, cross_val_predict)
+    GridSearchCV, GroupShuffleSplit, StratifiedGroupKFold, StratifiedKFold,
+    cross_val_predict)
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.svm import LinearSVC
 
@@ -70,6 +72,14 @@ def build_features():
 
 
 def candidates():
+    """The two candidate classifiers, both able to produce probabilities.
+
+    LinearSVC returns decision-function margins, not probabilities. It is
+    wrapped in CalibratedClassifierCV so that whichever model wins, the service
+    can report a meaningful confidence figure to the clinician and the RED
+    threshold can be tuned. Without this, selecting the SVM would silently turn
+    the dashboard's confidence display into a constant.
+    """
     return {
         "logreg": Pipeline([
             ("features", build_features()),
@@ -77,9 +87,92 @@ def candidates():
         ]),
         "linsvm": Pipeline([
             ("features", build_features()),
-            ("clf", LinearSVC(C=1.0, class_weight="balanced")),
+            ("clf", CalibratedClassifierCV(
+                LinearSVC(C=1.0, class_weight="balanced"), cv=3)),
         ]),
     }
+
+
+# Grids are small on purpose: the dataset has ~200 template groups, so a large
+# search would mostly be fitting noise between near-identical configurations.
+PARAM_GRIDS = {
+    "logreg": {
+        "clf__C": [0.5, 1, 3, 10, 30],
+        "features__word__min_df": [1, 2],
+    },
+    # The SVM sits inside CalibratedClassifierCV, so its C lives one level down.
+    "linsvm": {
+        "clf__estimator__C": [0.1, 0.5, 1, 3, 10],
+        "features__word__min_df": [1, 2],
+    },
+}
+
+
+def tune(name, pipe, X, y, groups, cv):
+    """Search hyperparameters with grouped CV on the training set.
+
+    Scored by macro-F1 rather than RED recall: optimising RED recall directly
+    rewards a model that simply escalates everything, which would be useless.
+    Balanced quality is chosen here, and the operating point is then shifted
+    towards safety separately (see `tune_red_threshold`).
+    """
+    grid = GridSearchCV(
+        pipe, PARAM_GRIDS[name], cv=cv, scoring="f1_macro", n_jobs=1, refit=True)
+    grid.fit(X, y, groups=groups)
+    print(f"  {name:<8} best macro-F1={grid.best_score_:.3f}  params={grid.best_params_}")
+    return grid.best_estimator_, grid.best_params_, float(grid.best_score_)
+
+
+def tune_red_threshold(pipe, X, y, groups, cv, min_precision=0.75):
+    """Pick a probability threshold above which a message is escalated to RED.
+
+    Missing an urgent message is far worse than reviewing a non-urgent one, so
+    the default argmax decision rule is not the right operating point. This
+    lowers the bar for predicting RED, subject to RED precision not collapsing
+    -- an unchecked threshold would flood the queue with false alarms and hide
+    the real emergencies, which is the same failure in a different direction.
+
+    Returns (threshold, chosen_recall, chosen_precision) or None if the model
+    does not produce probabilities.
+    """
+    if not hasattr(pipe, "predict_proba"):
+        return None
+
+    proba = cross_val_predict(pipe, X, y, cv=cv, groups=groups, method="predict_proba")
+    classes = list(pipe.fit(X, y).classes_)
+    red_idx = classes.index("RED")
+    red_scores = proba[:, red_idx]
+    truth = np.array(y)
+
+    # Baseline: what the ordinary argmax rule already achieves. A tuned
+    # threshold is only worth adopting if it beats this.
+    argmax_pred = np.array(classes)[proba.argmax(axis=1)]
+    base_tp = int(((truth == "RED") & (argmax_pred == "RED")).sum())
+    base_fn = int(((truth == "RED") & (argmax_pred != "RED")).sum())
+    base_recall = base_tp / (base_tp + base_fn) if (base_tp + base_fn) else 0.0
+
+    best = None
+    for threshold in np.arange(0.20, 0.75, 0.05):
+        pred_red = red_scores >= threshold
+        tp = int(((truth == "RED") & pred_red).sum())
+        fp = int(((truth != "RED") & pred_red).sum())
+        fn = int(((truth == "RED") & ~pred_red).sum())
+        if tp == 0:
+            continue
+        precision = tp / (tp + fp)
+        recall = tp / (tp + fn)
+        if precision < min_precision:
+            continue
+        # Must actually improve on argmax, not just clear the floor.
+        if recall <= base_recall:
+            continue
+        if best is None or recall > best[1]:
+            best = (float(threshold), float(recall), float(precision))
+
+    if best is None:
+        print(f"  argmax already gives RED recall={base_recall:.3f} at or above "
+              f"the precision floor; no threshold improves on it")
+    return best
 
 
 def score_predictions(X, y_true, y_pred, title):
@@ -141,6 +234,8 @@ def main():
                         help="CSV filename under ml/data/ to train on")
     parser.add_argument("--test-size", type=float, default=0.30,
                         help="fraction of TEMPLATES held out as the test set")
+    parser.add_argument("--tune", action="store_true",
+                        help="search hyperparameters and the RED threshold (slower)")
     args = parser.parse_args()
 
     data_path = os.path.join(_ML_ROOT, "data", args.data)
@@ -193,6 +288,16 @@ def main():
     print("MODEL SELECTION -- 5-fold grouped CV on the training set")
     print("=" * 70)
     cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
+
+    tuned_params = None
+    if args.tune:
+        print("\nSearching hyperparameters (grouped CV, training set only)...")
+        tuned_params = {}
+        for name in list(pipes):
+            pipes[name], best_params, _ = tune(
+                name, pipes[name], list(X_train), list(y_train), g_train, cv)
+            tuned_params[name] = {k: str(v) for k, v in best_params.items()}
+
     cv_results = {name: evaluate(name, pipe, list(X_train), list(y_train), cv,
                                  groups=g_train)
                   for name, pipe in pipes.items()}
@@ -203,13 +308,35 @@ def main():
           f"(CV hybrid RED recall={cv_results[best]['hybrid']['red_recall']:.3f}, "
           f"macro-F1={cv_results[best]['macro_f1']:.3f})")
 
+    # ── Step 2b: choose the RED operating point on the training folds ─────
+    red_threshold = None
+    if args.tune:
+        print("\nTuning the RED decision threshold (training folds only)...")
+        chosen = tune_red_threshold(pipes[best], list(X_train), list(y_train),
+                                    g_train, cv)
+        if chosen:
+            red_threshold, r_recall, r_precision = chosen
+            print(f"  threshold={red_threshold:.2f} -> RED recall={r_recall:.3f}, "
+                  f"precision={r_precision:.3f} (precision floor 0.75)")
+        else:
+            print("  no threshold cleared the precision floor; keeping argmax")
+
     # ── Step 3: evaluate the selected model ONCE on the held-out test set ─
     print("\n" + "=" * 70)
     print("FINAL EVALUATION -- held-out test set, unseen templates")
     print("=" * 70)
     fitted = pipes[best].fit(list(X_train), list(y_train))
+    y_test_pred = list(fitted.predict(list(X_test)))
+    if red_threshold is not None and hasattr(fitted, "predict_proba"):
+        # Apply the tuned operating point: escalate when the RED probability
+        # clears the threshold, even if another class scored marginally higher.
+        classes = list(fitted.classes_)
+        red_idx = classes.index("RED")
+        proba = fitted.predict_proba(list(X_test))
+        y_test_pred = ["RED" if p[red_idx] >= red_threshold else lbl
+                       for p, lbl in zip(proba, y_test_pred)]
     test_results = score_predictions(
-        list(X_test), list(y_test), list(fitted.predict(list(X_test))),
+        list(X_test), list(y_test), y_test_pred,
         best + " on held-out test set")
 
     # ── Step 4: quantify the leakage a naive split would have hidden ──────
@@ -248,6 +375,8 @@ def main():
         },
         "n_train": len(X_train),
         "n_test": len(X_test),
+        "tuned_params": tuned_params,
+        "red_threshold": red_threshold,
         "headline_test_metrics": test_results,
         "cv_results_on_train": cv_results,
         "leaky_random_split_for_comparison": leaky,

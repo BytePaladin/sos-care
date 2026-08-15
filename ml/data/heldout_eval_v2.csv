@@ -1,0 +1,57 @@
+text,label,note
+"havent been able to go for a wee since yesterday morning",RED,anuria colloquial
+"nothing comes out when i try to go to the toilet",RED,anuria descriptive
+"my water works have stopped completely",RED,anuria idiom
+"struggling to get my breath even sitting still",RED,dyspnoea at rest
+"i keep gasping and cant fill my lungs",RED,dyspnoea descriptive
+"woke up fighting for air in the middle of the night",RED,paroxysmal nocturnal dyspnoea
+"got a tight band around my chest that wont ease",RED,chest pain descriptive
+"pain across my chest spreading up to my jaw",RED,cardiac radiation
+"the toilet water went red when i went",RED,haematuria descriptive
+"there are clots coming out when i pass water",RED,haematuria with clots
+"i keeled over in the kitchen and came round on the floor",RED,syncope narrative
+"my wife found me shaking and i dont remember it",RED,seizure third person
+"brought up dark stuff like old blood this morning",RED,haematemesis lay terms
+"sudden crushing headache unlike anything before",RED,thunderclap paraphrase
+"so puffed up i had to sleep sitting in a chair",RED,orthopnoea from fluid overload
+"cant stop being sick and havent kept fluids down for two days",RED,intractable vomiting
+"my ankles are a little puffy at the end of the day",YELLOW,mild oedema
+"been dragging myself around all week no energy",YELLOW,fatigue colloquial
+"appetite has gone and food tastes odd",YELLOW,anorexia + dysgeusia
+"passing water less often than i used to",YELLOW,reduced output
+"theres froth in the toilet when i go",YELLOW,proteinuria descriptive
+"my skin is driving me mad with itching",YELLOW,pruritus colloquial
+"nagging ache in my lower back on one side",YELLOW,flank pain
+"readings on my home monitor are higher than usual",YELLOW,hypertension trend
+"legs keep seizing up with cramp at night",YELLOW,cramps colloquial
+"felt a bit feverish since last night",YELLOW,low grade fever
+"i get a bit lightheaded standing up too fast",YELLOW,postural dizziness
+"puffy round the eyes first thing in the morning",YELLOW,periorbital oedema
+"had a headache on and off for a couple of days",YELLOW,benign headache
+"stomach feels bloated and uncomfortable after eating",YELLOW,mild abdominal
+"am i ok to have grapes with my condition",GREEN,diet query
+"need to change my appointment to a later date",GREEN,scheduling
+"how much fluid am i meant to have each day",GREEN,fluid advice
+"do i fast before the blood test next week",GREEN,pre test instruction
+"what are the clinic hours on sunday",GREEN,admin
+"can someone else pick up my prescription",GREEN,admin
+"is there somewhere to park nearby",GREEN,admin
+"just wanted to say thank you to the nurses",GREEN,courtesy
+"i need a sick note for my workplace",GREEN,admin
+"do i take the tablet before or after breakfast",GREEN,medication timing
+"কাল সকাল থেকে প্রস্রাব একেবারেই হয়নি",RED,bengali anuria
+"বুকটা চেপে ধরে আছে ব্যথায়",RED,bengali chest pain descriptive
+"নিঃশ্বাস নিতে পারছি না ঠিকমতো",RED,bengali dyspnoea
+"প্রস্রাবের সাথে রক্ত পড়ছে",RED,bengali haematuria
+"রাতে হঠাৎ অজ্ঞান হয়ে পড়ে গিয়েছিলাম",RED,bengali syncope
+"হঠাৎ ভীষণ মাথাব্যথা শুরু হলো আগে কখনো এমন হয়নি",RED,bengali thunderclap
+"গোড়ালি একটু ফুলে থাকে বিকেলে",YELLOW,bengali mild oedema
+"শরীরটা খুব দুর্বল লাগছে কয়েকদিন ধরে",YELLOW,bengali fatigue
+"প্রস্রাব আগের চেয়ে কম হচ্ছে",YELLOW,bengali reduced output
+"গা চুলকাচ্ছে খুব",YELLOW,bengali pruritus
+"কোমরের একপাশে চিনচিনে ব্যথা",YELLOW,bengali flank pain
+"হালকা জ্বর জ্বর লাগছে",YELLOW,bengali low fever
+"আঙুর খাওয়া যাবে কি আমার জন্য",GREEN,bengali diet
+"অ্যাপয়েন্টমেন্টের তারিখ বদলাতে চাই",GREEN,bengali scheduling
+"রিপোর্ট কি তৈরি হয়েছে",GREEN,bengali admin
+"ওষুধ সকালে না রাতে খাব",GREEN,bengali medication timing

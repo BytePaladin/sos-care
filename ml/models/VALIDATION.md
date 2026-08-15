@@ -1,7 +1,14 @@
 # Model Validation — S.O.S. severity classifier
 
-Covers dataset v1 → v3 and the evaluation protocol. Metrics files
-(`metrics_v1.json` … `metrics_v3.json`) are archived alongside this document;
+> **v4 update.** Evaluation on hand-written messages showed the model failing on
+> ordinary patient language. v4 addresses that: colloquial training data, wider
+> safety-net rules, tuned hyperparameters, and a calibrated SVM. On the same
+> independent test set, deployed RED recall rose **68.2% → 95.5%** and messages
+> missed by both layers fell **7 → 1**. §8 reports it in full, including a
+> sealed set that was written before any tuning began.
+
+Covers dataset v1 → v4 and the evaluation protocol. Metrics files
+(`metrics_v1.json` … `metrics_v4.json`) are archived alongside this document;
 `metrics.json` always describes whichever model is currently deployed at
 `severity_model.joblib`.
 
@@ -9,33 +16,33 @@ Covers dataset v1 → v3 and the evaluation protocol. Metrics files
 
 ## 1. Headline result
 
-**On messages phrased in ways the model has never seen, the classifier alone is
-right about 83% of the time and catches 79% of urgent cases. The deployed
-system — classifier plus the deterministic safety net — catches 98.7% of urgent
-cases.**
+**On hand-written messages that played no part in building the model, the
+deployed system is right 87.5% of the time and catches 82% of urgent cases.**
 
-The earlier "100% accuracy" figure was an artefact of data leakage. §3 explains
-how it was found and corrected.
+That figure comes from a set written and sealed *before* any tuning began
+(§8.2), so it is the one to quote. The earlier "100% accuracy" was an artefact
+of data leakage — §3 explains how it was found and corrected.
 
-| | Model alone | Deployed system (model + safety net) |
+| Measured on | Model alone | Deployed system |
 |---|---|---|
-| Accuracy | 0.827 | 0.916 |
-| Macro-F1 | 0.844 | — |
-| **RED recall** | 0.790 | **0.987** |
+| **Sealed hand-written set** (56 messages, §8.4) | 0.821 | **0.875** acc / **0.818** RED recall |
+| Held-out templates (408 messages, §3) | 0.833 | 0.858 acc / 0.837 RED recall |
+| Naive random split — *shown only to expose the leakage* | 0.994 | — |
 
-Held-out test set: 347 messages generated from 51 templates that appear nowhere
-in training. Selected model: logistic regression, dataset v3.
+Current model: **calibrated linear SVM, dataset v4**. Sections 2–7 describe how
+the evaluation reached this point; §8 covers the v4 improvements.
 
 ---
 
 ## 2. What changed in each dataset version
 
-| | v1 | v2 | v3 |
-|---|---|---|---|
-| Messages | 630 | 772 | 1124 |
-| Templates | — | — | 170 |
-| Languages | English | English | English + Bengali |
-| Safety-net rules | 9 | 10 | 17 |
+| | v1 | v2 | v3 | v4 |
+|---|---|---|---|---|
+| Messages | 630 | 772 | 1124 | 1324 |
+| Templates | — | — | 170 | 202 |
+| Languages | English | English | + Bengali | + Bengali |
+| Safety-net rules | 9 | 10 | 17 | 23 |
+| Register | clinical | clinical | clinical | + colloquial |
 
 **v2 (Week 3)** came from error analysis. Probing the v1 model with realistic
 paraphrases showed *"sudden severe headache, the worst one of my life"* being
@@ -53,6 +60,9 @@ tiers and Bengali patterns were added to both safety nets.
 ---
 
 ## 3. The evaluation was wrong, and how it was fixed
+
+*Numbers below are the v3 measurement that first exposed the leakage; the method
+described here is still what `train.py` does.*
 
 ### The problem
 
@@ -103,6 +113,9 @@ more balanced one wins rather than one that escalates everything.
 
 ## 4. What the safety net is actually worth
 
+*Figures in this section are from the v3 measurement, kept as the record of how
+the hybrid design was first justified. See §8.4 for the current numbers.*
+
 Because the safety net is deterministic and can only escalate, its contribution
 can be measured directly. On the held-out test set:
 
@@ -118,6 +131,9 @@ makes the system trustworthy.
 ---
 
 ## 5. Independent evaluation (the strictest test)
+
+*This section records the v3 result — the failures listed here are what drove
+the v4 improvements in §8. The current figures are in §8.4.*
 
 The held-out test set still uses the generator's phrasing style. `evaluate.py`
 runs a second set — `data/heldout_eval.csv`, **56 messages written by hand** in
@@ -189,9 +205,98 @@ be checked against text written by someone else.
 
 ```bash
 cd ml
-python training/build_dataset.py --version 3 --target-per-class 400
-python training/train.py --data dataset_v3.csv     # 70/30 by template
-python evaluate.py                                  # independent hand-written set
+python training/build_dataset.py --version 4 --target-per-class 500
+python training/train.py --data dataset_v4.csv --tune   # 70/30 by template + search
+python evaluate.py                                       # independent set
+python evaluate.py --data data/heldout_eval_v2.csv       # sealed set
 python compare_versions.py                          # v1 vs v2 before/after
-python -m pytest -q                                 # 254 tests, includes parity
+python -m pytest -q                                      # 254 tests, includes parity
 ```
+
+---
+
+## 8. v4 — improving the model, and measuring it honestly
+
+### 8.1 What the evidence said to fix
+
+§5 showed the model failing on ordinary patient language. It recognised
+*"I have not passed urine"* but not *"my pee has stopped"*; *"chest pain"* but
+not *"a heavy weight sitting on my chest"*. Both the training data and the
+safety-net rules were written in clinical register, so lay phrasing — which is
+what patients actually type — was barely represented anywhere.
+
+### 8.2 Guarding against tuning to the test set
+
+The failures in §5 came from `heldout_eval.csv`. Using them to guide changes and
+then reporting on that same file would be tuning to the test set: the score
+would improve without the model necessarily getting better.
+
+So **a second evaluation set was written first and sealed** —
+`data/heldout_eval_v2.csv`, 56 new hand-written messages — and was not run
+against the model until every change below was finished. Both numbers are
+reported in §8.4, because they answer different questions.
+
+### 8.3 What changed
+
+| Change | Why |
+|---|---|
+| **Colloquial training templates** (RED and YELLOW) | Teach the everyday register for the same emergencies. Written independently of both evaluation sets — the aim is to cover the vocabulary, not memorise the tests. |
+| **Colloquial safety-net rules** (6 new groups, both layers) | *"pee stopped"*, *"weight on my chest"*, *"coffee grounds"*, *"keeled over"*. Kept deliberately narrow: *"peeing less"* must stay YELLOW. |
+| **Hyperparameter search** (`GridSearchCV`, grouped CV, training set only) | `C=10` and `C=1.0` were inherited defaults, never tuned. Scored by macro-F1 — optimising RED recall directly would reward a model that escalates everything. |
+| **Calibrated SVM** (`CalibratedClassifierCV`) | `LinearSVC` has no `predict_proba`. Without calibration, selecting the SVM would have silently turned the clinician-facing confidence score into a constant and blocked threshold tuning. |
+| **Dataset v4** | 1124 → **1324** messages, 170 → **202** templates. |
+
+### 8.4 Results
+
+**On `heldout_eval.csv` — the same messages the v3 model was measured on:**
+
+| | v3 (before) | v4 (after) |
+|---|---|---|
+| Model accuracy | 0.714 | **0.875** |
+| Model RED recall | 0.636 | **0.818** |
+| Deployed accuracy | 0.732 | **0.929** |
+| **Deployed RED recall** | 0.682 | **0.955** |
+| Missed by both layers | 7 | **1** |
+| False escalations | 3 | **1** |
+
+This is a like-for-like comparison, but it is **optimistic**: this set informed
+the changes, so the model has in effect been shown the kind of thing it is being
+tested on.
+
+**On `heldout_eval_v2.csv` — sealed before tuning, opened once:**
+
+| | Model alone | Deployed system |
+|---|---|---|
+| Accuracy | 0.821 | **0.875** |
+| Macro-F1 | 0.818 | 0.871 |
+| RED recall | 0.682 | **0.818** |
+
+4 urgent messages were missed by both layers, and there was 1 false escalation.
+**This is the number to trust** — it is the only one measured on data that played
+no part in the changes.
+
+### 8.5 A tuning result that was rejected
+
+Threshold tuning was implemented and then **not adopted**. Lowering the bar for
+predicting RED did raise recall, but at a 0.60 precision floor it cost 10 points
+of overall accuracy for 6.6 points of RED recall — flooding the queue with false
+alarms, which hides real emergencies just as effectively as missing them. At a
+defensible 0.75 floor, no threshold beat the ordinary decision rule, so the
+default was kept. The search is still in `train.py --tune` and reports this
+explicitly rather than quietly selecting a worse operating point.
+
+### 8.6 What is still wrong
+
+Four urgent messages in the sealed set were missed by both layers:
+
+| Message | Labelled | Should be |
+|---|---|---|
+| "i keep gasping and cant fill my lungs" | GREEN | RED |
+| "sudden crushing headache unlike anything before" | GREEN | RED |
+| "so puffed up i had to sleep sitting in a chair" | GREEN | RED |
+| "বুকটা চেপে ধরে আছে ব্যথায়" (chest gripped with pain) | YELLOW | RED |
+
+Three are English paraphrases still outside the rules, and one is Bangla — Bangla
+has fewer templates and fewer rules than English, so its coverage of unusual
+phrasing is thinner. Fixing these would require a third evaluation set to
+measure honestly, which is the same discipline applied in §8.2.
