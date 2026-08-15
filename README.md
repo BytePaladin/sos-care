@@ -61,7 +61,8 @@ cd server && npm install && cd ..
 cd ml && pip install -r requirements.txt && cd ..
 ```
 
-The trained model is gitignored (it is regenerable), so build it once:
+The trained model is committed, so there is nothing to train before running. To
+rebuild it from the dataset:
 
 ```bash
 cd ml && python training/train.py --data dataset_v4.csv && cd ..
@@ -187,6 +188,55 @@ You can see the fail-safe yourself: stop the Flask service, send another message
 and note that dangerous phrases are still escalated to RED.
 
 ---
+
+## Deployment
+
+The three services do not all belong on one host. The app (SPA + Express) runs on
+Vercel; the ML service runs on Render, because scikit-learn and its dependencies
+come to roughly 190 MB against Vercel's 250 MB function limit — it would fit only
+barely, and every cold start would pay to unpack it.
+
+```
+Vercel                                  Render               MongoDB Atlas
+┌───────────────────────────┐          ┌──────────────┐     ┌────────────┐
+│ React SPA  →  /api  →  Express │──────▶│ Flask + model│     │  database  │
+└───────────────────────────┘          └──────────────┘     └────────────┘
+                    │                                             ▲
+                    └─────────────────────────────────────────────┘
+```
+
+**1. ML service — Render.** [render.yaml](render.yaml) is a blueprint: in the
+Render dashboard choose **New → Blueprint** and point it at this repository. It
+builds from `ml/` using [ml/requirements-serve.txt](ml/requirements-serve.txt)
+(runtime dependencies only — no pandas or pytest) and serves with gunicorn.
+
+The trained model is committed (~650 KB) precisely so this works; hosts build
+from git and cannot run `train.py` themselves.
+
+**2. Database — MongoDB Atlas.** The in-memory database used locally cannot work
+on serverless, where each invocation is a fresh process.
+
+**3. App — Vercel.** [vercel.json](vercel.json) already builds the SPA and mounts
+`server/index.js` at `/api`. Set these environment variables in the Vercel
+project:
+
+| Variable | Value |
+|---|---|
+| `MONGODB_URI` | Atlas connection string |
+| `JWT_SECRET` | a long random string |
+| `ML_SERVICE_URL` | the Render URL, e.g. `https://sos-ml-service.onrender.com` |
+
+> **`ML_SERVICE_URL` is the one that is easy to miss.** Without it the backend
+> falls back to `127.0.0.1:5001`, which does not exist in production, and every
+> message is scored by the keyword heuristic instead of the model. The site still
+> works and the safety net still escalates emergencies — so nothing looks broken.
+> Check `/api/health`: it should report `mlService: "online"`, and stored cases
+> should show `modelSource: "ml-service"` rather than `"fallback-heuristic"`.
+
+Render's free tier sleeps when idle, so the first request after a pause takes
+several seconds. The backend's timeout and circuit breaker handle this — the
+message degrades to the heuristic rather than hanging — but it is worth waking
+the service before a live demo.
 
 ## Testing
 

@@ -5,6 +5,11 @@ __pycache__/
 .venv/
 venv/
 
-# Serialized model binaries are regenerable via training/train.py -- don't commit.
-# metrics.json (human-readable results) IS committed, so it's excluded from this ignore.
+# The deployed model IS committed (it is ~650 KB, and hosting platforms build
+# from git — without it the service would start with no model and every request
+# would fall through to the backend's keyword fallback).
+# Regenerate it with: python training/train.py --data dataset_v4.csv
+#
+# Any other serialised experiments stay out of version control.
 models/*.joblib
+!models/severity_model.joblib

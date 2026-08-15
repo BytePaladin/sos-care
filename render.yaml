@@ -1,0 +1,27 @@
+# Render blueprint for the S.O.S. Flask ML service.
+#
+# Why this is a separate host rather than part of the Vercel deployment:
+# scikit-learn and its dependencies come to roughly 190 MB, against Vercel's
+# 250 MB serverless function limit — it would fit only barely, and every cold
+# start would pay for unpacking it. This also matches the deployment split in
+# plan.md (Vercel for the app, a separate host for the ML service).
+#
+# To deploy: Render dashboard -> New -> Blueprint -> point at this repository.
+# Afterwards, set ML_SERVICE_URL in Vercel to the URL Render assigns, otherwise
+# the backend keeps falling back to its keyword heuristic.
+
+services:
+  - type: web
+    name: sos-ml-service
+    runtime: python
+    plan: free
+    rootDir: ml
+    buildCommand: pip install -r requirements-serve.txt
+    # The model is loaded once at import, so gunicorn workers do not reload it
+    # per request. One worker is enough for the free tier's memory budget, and
+    # the timeout is generous because a cold start includes loading sklearn.
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
