@@ -21,16 +21,7 @@
   },
   "n_train": 916,
   "n_test": 408,
-  "tuned_params": {
-    "logreg": {
-      "clf__C": "3",
-      "features__word__min_df": "1"
-    },
-    "linsvm": {
-      "clf__estimator__C": "0.5",
-      "features__word__min_df": "1"
-    }
-  },
+  "tuned_params": null,
   "red_threshold": null,
   "headline_test_metrics": {
     "accuracy": 0.8333333333333334,

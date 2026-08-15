@@ -60,11 +60,15 @@ SEED = 42
 
 
 def build_features():
-    """Word + character TF-IDF, both using the shared cleaner as preprocessor."""
+    """Word + character TF-IDF, both using the shared cleaner as preprocessor.
+
+    min_df=1 is the value found by the grid search (`--tune`): with only ~200
+    template groups, discarding terms that appear once loses real signal.
+    """
     return FeatureUnion([
         ("word", TfidfVectorizer(
             preprocessor=clean_text, ngram_range=(1, 2),
-            min_df=2, sublinear_tf=True)),
+            min_df=1, sublinear_tf=True)),
         ("char", TfidfVectorizer(
             preprocessor=clean_text, analyzer="char_wb", ngram_range=(3, 5),
             min_df=2, sublinear_tf=True)),
@@ -79,16 +83,20 @@ def candidates():
     can report a meaningful confidence figure to the clinician and the RED
     threshold can be tuned. Without this, selecting the SVM would silently turn
     the dashboard's confidence display into a constant.
+
+    The C values below are the ones the grid search selected, so running
+    `train.py` without `--tune` reproduces the deployed model rather than an
+    arbitrary default. Re-run with `--tune` after changing the dataset.
     """
     return {
         "logreg": Pipeline([
             ("features", build_features()),
-            ("clf", LogisticRegression(max_iter=2000, C=10, class_weight="balanced")),
+            ("clf", LogisticRegression(max_iter=2000, C=3, class_weight="balanced")),
         ]),
         "linsvm": Pipeline([
             ("features", build_features()),
             ("clf", CalibratedClassifierCV(
-                LinearSVC(C=1.0, class_weight="balanced"), cv=3)),
+                LinearSVC(C=0.5, class_weight="balanced"), cv=3)),
         ]),
     }
 
