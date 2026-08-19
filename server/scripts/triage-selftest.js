@@ -7,8 +7,8 @@
  * this can be shown in weekly progress reports and demos.
  */
 
-import { runSafetyNet, getSafetyNetRuleTags } from '../services/safetyNet.js'; // rule engine
-import { evaluateMessage } from '../services/triageEngine.js'; // hybrid engine
+import { runSafetyNet, getSafetyNetRuleTags } from '../../src/services/safetyNet.js'; // rule engine
+import { evaluateMessage } from '../../src/services/localTriage.js'; // frontend ML engine
 import { normalizeSeverity, higherSeverity } from '../utils/severity.js'; // helper
 
 // Sample messages for testing — taken from Appendix A of the proposal

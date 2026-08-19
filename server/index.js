@@ -19,8 +19,7 @@ import chatRoutes from './routes/chatRoutes.js'; // /api/chats
 import adminRoutes from './routes/adminRoutes.js'; // /api/admin
 import notificationRoutes from './routes/notificationRoutes.js'; // /api/notifications (Week 5)
 import { notFound, errorHandler } from './middleware/errorHandler.js'; // error middleware
-import { pingMlService, getMlBreakerState } from './services/mlClient.js'; // check if ML service is alive
-import { getSafetyNetRuleTags } from './services/safetyNet.js'; // how many rules exist
+import { getSafetyNetRuleTags } from '../src/services/safetyNet.js'; // how many rules exist
 
 // NOTE: .env loading lives in ./config/env.js (imported first, above). It must
 // run before any module that reads process.env at load time — see that file.
@@ -75,17 +74,14 @@ app.use('/api/chats', chatRoutes); // patient screening
 app.use('/api/admin', adminRoutes); // admin panel
 app.use('/api/notifications', notificationRoutes); // Week 5: staff notification bell
 
-// ── Health check (including ML service and safety-net status) ──
+// ── Health check (including safety-net status) ──
 app.get('/api/health', async (req, res) => {
-  const mlAlive = await pingMlService(); // is Flask service responding
-
   res.json({
     status: 'OK', // server running
     message: 'S.O.S. Care API Server running', // legacy frontend checks this key
-    mlService: mlAlive ? 'online' : 'offline (fallback heuristic active)', // ML status
+    mlService: 'client-side (React)', // ML status
     safetyNetRules: getSafetyNetRuleTags().length, // active critical rules count
     rateLimiting: process.env.RATE_LIMIT_DISABLED === 'true' ? 'disabled' : 'active', // Week 5
-    mlBreaker: getMlBreakerState(), // Week 6: is the ML circuit breaker open
     timestamp: new Date().toISOString(), // time
   });
 });

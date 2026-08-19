@@ -10,7 +10,7 @@ import { ChatSession } from '../models/ChatSession.js'; // chat session model
 import { PatientTriage } from '../models/PatientTriage.js'; // triage record model
 import { asyncHandler } from '../utils/asyncHandler.js'; // try/catch wrapper
 import { SEVERITY } from '../utils/severity.js'; // severity constant
-import { evaluateMessage, buildPatientReply, buildAiAnalysis } from '../services/triageEngine.js'; // hybrid engine
+import { buildPatientReply, buildAiAnalysis } from '../services/triageEngine.js'; // hybrid engine
 import { notifyRedCase } from '../services/notificationService.js'; // Week 5: staff alert on Red
 
 /**
@@ -58,11 +58,11 @@ export const createChatSession = asyncHandler(async (req, res) => {
 
 /**
  * POST /api/chats/:id/messages
- * Takes patient's message → runs hybrid triage → saves label → gives bot reply.
+ * Takes patient's message → uses frontend decision → saves label → gives bot reply.
  */
 export const sendMessage = asyncHandler(async (req, res) => {
   const { id } = req.params; // session id
-  const { text } = req.body; // message written by patient
+  const { text, decision } = req.body; // message written by patient and ML decision from frontend
 
   const session = await ChatSession.findById(id); // find session
   // if session not found, 404
@@ -88,22 +88,30 @@ export const sendMessage = asyncHandler(async (req, res) => {
     timestamp: new Date(), // time
   });
 
-  // ── Step 2: hybrid triage — ML classifier + deterministic safety-net ──
-  const decision = await evaluateMessage(cleanText); // full decision (with audit)
+  // ── Step 2: Ensure decision is present (Fallback if frontend didn't send one) ──
+  const finalDecision = decision || {
+    mlLabel: SEVERITY.GREEN,
+    confidence: 1.0,
+    modelSource: 'fallback-no-decision',
+    topFeatures: [],
+    ruleOverride: false,
+    matchedKeywords: [],
+    finalLabel: SEVERITY.GREEN,
+  };
 
   // ── Step 3: Create bot reply to show patient ──
   session.messages.push({
     sender: 'bot', // sender is bot
-    text: buildPatientReply(decision.finalLabel, decision.ruleOverride), // message according to label
+    text: buildPatientReply(finalDecision.finalLabel, finalDecision.ruleOverride), // message according to label
     metadata: {
-      finalLabel: decision.finalLabel, // which tier was given
-      ruleOverride: decision.ruleOverride, // whether safety-net was triggered
+      finalLabel: finalDecision.finalLabel, // which tier was given
+      ruleOverride: finalDecision.ruleOverride, // whether safety-net was triggered
     },
     timestamp: new Date(), // time
   });
 
   // If RED, session is marked flagged so it shows differently in dashboard
-  if (decision.finalLabel === SEVERITY.RED) {
+  if (finalDecision.finalLabel === SEVERITY.RED) {
     session.status = 'flagged_red'; // status change
   }
 
@@ -113,26 +121,26 @@ export const sendMessage = asyncHandler(async (req, res) => {
   if (triage) {
     // If it was RED before in a session, it won't be downgraded even if green message comes later
     const alreadyRed = triage.finalLabel === SEVERITY.RED; // whether it was already red
-    const nextLabel = alreadyRed ? SEVERITY.RED : decision.finalLabel; // escalate-only
+    const nextLabel = alreadyRed ? SEVERITY.RED : finalDecision.finalLabel; // escalate-only
 
-    triage.mlLabel = decision.mlLabel; // what model said
-    triage.ruleOverride = decision.ruleOverride || triage.ruleOverride; // once true, remains true
-    triage.matchedKeywords = [...new Set([...(triage.matchedKeywords || []), ...decision.matchedKeywords])]; // remove duplicates
-    triage.modelSource = decision.modelSource; // ml-service or fallback
+    triage.mlLabel = finalDecision.mlLabel; // what model said
+    triage.ruleOverride = finalDecision.ruleOverride || triage.ruleOverride; // once true, remains true
+    triage.matchedKeywords = [...new Set([...(triage.matchedKeywords || []), ...finalDecision.matchedKeywords])]; // remove duplicates
+    triage.modelSource = finalDecision.modelSource; // ml-service or fallback
     triage.finalLabel = nextLabel; // final label (pre-save hook will also sync category)
     triage.category = nextLabel;
     if (!triage.doctorOverride?.isOverridden) {
       triage.initialCategory = nextLabel; // sync automated AI tier
     }
-    triage.aiAnalysis = buildAiAnalysis(cleanText, decision); // update summary and tag
+    triage.aiAnalysis = buildAiAnalysis(cleanText, finalDecision); // update summary and tag
     triage.screenedAt = new Date(); // last screening time
     triage.reviewStatus = 'pending'; // MUST reset to pending so staff see the new data
 
     // if safety-net triggered, reason is written as system note (audit trail)
-    if (decision.ruleOverride) {
+    if (finalDecision.ruleOverride) {
       triage.notes.push({
         author: 'System (Safety-Net)', // who added it
-        text: `Force-escalated to RED. Rule hits: ${decision.matchedKeywords.join(', ')}. ML label was: ${decision.mlLabel}.`,
+        text: `Force-escalated to RED. Rule hits: ${finalDecision.matchedKeywords.join(', ')}. ML label was: ${finalDecision.mlLabel}.`,
         timestamp: new Date(), // time
       });
     }
@@ -149,8 +157,8 @@ export const sendMessage = asyncHandler(async (req, res) => {
     if (nextLabel === SEVERITY.RED) {
       await notifyRedCase({
         triage, // for _id and patientName
-        matchedKeywords: decision.matchedKeywords, // which rules fired
-        ruleOverride: decision.ruleOverride, // safety-net or classifier
+        matchedKeywords: finalDecision.matchedKeywords, // which rules fired
+        ruleOverride: finalDecision.ruleOverride, // safety-net or classifier
       });
     }
   }

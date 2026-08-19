@@ -179,11 +179,11 @@ export const api = {
     return await res.json();
   },
 
-  sendChatMessage: async (sessionId, text) => {
+  sendChatMessage: async (sessionId, text, decision) => {
     const res = await fetch(`${API_BASE}/chats/${sessionId}/messages`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, decision }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../services/api';
+import { evaluateMessage } from '../services/localTriage';
 
 // Colours for the severity badge on a screened reply. Keyed by the lowercase
 // label the backend returns (see server/utils/severity.js).
@@ -92,8 +93,11 @@ export default function Dashboard({ userName, onOpenSettings, onLogout }) {
         setMessages((prev) => [...newSession.messages, userMsg]);
       }
 
-      // Send the user message to the backend
-      const updatedMessages = await api.sendChatMessage(currentSessionId, trimmed);
+      // Predict severity locally using the imported ML model
+      const decision = await evaluateMessage(trimmed);
+
+      // Send the user message and our local prediction to the backend
+      const updatedMessages = await api.sendChatMessage(currentSessionId, trimmed, decision);
       
       // Update the chat window with the full conversation including the bot's response
       setMessages(updatedMessages);

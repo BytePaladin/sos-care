@@ -21,37 +21,7 @@
  * --------------------------------------------------------------------------
  */
 
-import { classifyMessage } from './mlClient.js'; // Flask ML service client
-import { runSafetyNet } from './safetyNet.js'; // deterministic keyword layer
 import { SEVERITY } from '../utils/severity.js'; // severity constant
-
-/**
- * Generates the full triage decision for a message.
- * @param {string} text — Patient's message
- * @returns {Promise<object>} — Full result including audit trail
- */
-export const evaluateMessage = async (text) => {
-  const cleanText = String(text || '').trim(); // make input safe
-
-  // Both paths run together, mirroring the parallel design in Figure 2
-  const [mlResult, safetyResult] = await Promise.all([
-    classifyMessage(cleanText), // path 1: ML classifier (or its fallback)
-    Promise.resolve(runSafetyNet(cleanText)), // path 2: deterministic rule engine
-  ]);
-
-  // The override rule: a critical keyword forces RED regardless of the model
-  const finalLabel = safetyResult.triggered ? SEVERITY.RED : mlResult.label;
-
-  return {
-    mlLabel: mlResult.label, // what the classifier said, kept for audit
-    confidence: mlResult.confidence, // how sure the classifier was
-    modelSource: mlResult.source, // ml-service or fallback-heuristic
-    topFeatures: mlResult.topFeatures || [], // which words drove the model's choice
-    ruleOverride: safetyResult.triggered, // did the safety net fire
-    matchedKeywords: safetyResult.matchedKeywords, // which rules matched
-    finalLabel, // the label the queue is ordered by
-  };
-};
 
 // Bot reply shown to the patient — generated based on label and override
 export const buildPatientReply = (finalLabel, ruleOverride) => {
