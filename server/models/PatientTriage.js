@@ -37,7 +37,7 @@ const patientTriageSchema = new mongoose.Schema(
     matchedKeywords: [{ type: String }], // which critical rules hit
     modelSource: {
       type: String, // where the label came from
-      enum: ['ml-service', 'fallback-heuristic', 'empty-input', 'manual'], // possible sources
+      enum: ['ml-service', 'fallback-heuristic', 'empty-input', 'manual', 'frontend-js-model'], // possible sources
       default: 'fallback-heuristic', // this one if Flask service absent
     },
 
