@@ -13,6 +13,7 @@ const patientTriageSchema = new mongoose.Schema(
   {
     patientName: { type: String, required: true, trim: true },
     patientPhone: { type: String, required: true, index: true, trim: true },
+    patientEmail: { type: String, trim: true, default: '' },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 
     // Triage Classification (frontend reads this — always in sync with finalLabel)

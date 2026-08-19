@@ -21,11 +21,13 @@ export const createChatSession = asyncHandler(async (req, res) => {
   const userId = req.user ? req.user._id : null; // user id if logged in
   const patientName = req.user ? req.user.name : req.body.patientName || 'Anonymous Patient'; // determine name
   const patientPhone = req.user ? req.user.phone : req.body.patientPhone || 'N/A'; // determine phone
+  const patientEmail = req.user ? req.user.email : req.body.patientEmail || ''; // determine email
 
   // Create triage record first — everyone is green and pending initially
   const triage = await PatientTriage.create({
     patientName, // patient's name
     patientPhone, // patient's phone
+    patientEmail, // patient's email
     userId, // from which account it came
     category: SEVERITY.GREEN, // initially routine
     finalLabel: SEVERITY.GREEN, // audit field is also the same
