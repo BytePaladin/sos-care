@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
 import { Otp } from '../models/Otp.js';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
+import { sendEmail } from '../services/emailService.js';
 
 
 const generateToken = (id) => {
@@ -110,29 +110,17 @@ export const sendEmailOtp = async (req, res) => {
     await Otp.deleteMany({ email: email.toLowerCase() }); // Clear old OTPs
     await Otp.create({ email: email.toLowerCase(), otp });
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.VITE_EMAIL_USER,
-        pass: process.env.VITE_EMAIL_PASS
-      }
-    });
+    const subject = 'Your S.O.S. Care Verification Code';
+    const html = `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2>Welcome to S.O.S. Care, ${name || 'User'}!</h2>
+        <p>Your verification code is:</p>
+        <h1 style="color: #4CAF50; font-size: 32px; letter-spacing: 4px;">${otp}</h1>
+        <p>This code will expire in 3 minutes.</p>
+      </div>
+    `;
 
-    const mailOptions = {
-      from: `"S.O.S. Care" <${process.env.VITE_EMAIL_USER}>`,
-      to: email,
-      subject: 'Your S.O.S. Care Verification Code',
-      html: `
-        <div style="font-family: sans-serif; padding: 20px;">
-          <h2>Welcome to S.O.S. Care, ${name || 'User'}!</h2>
-          <p>Your verification code is:</p>
-          <h1 style="color: #4CAF50; font-size: 32px; letter-spacing: 4px;">${otp}</h1>
-          <p>This code will expire in 3 minutes.</p>
-        </div>
-      `
-    };
-
-    await transporter.sendMail(mailOptions);
+    await sendEmail(email, subject, html);
     res.status(200).json({ message: 'OTP sent successfully' });
   } catch (error) {
     console.error('Error sending email:', error);

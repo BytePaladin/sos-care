@@ -10,10 +10,12 @@
 import { PatientTriage } from '../models/PatientTriage.js'; // triage record model
 import { ChatSession } from '../models/ChatSession.js'; // to fetch chat history
 import { StaffAction } from '../models/StaffAction.js'; // audit trail model
+import { User } from '../models/User.js'; // Need this to fetch user email
 import { asyncHandler } from '../utils/asyncHandler.js'; // try/catch wrapper
 import { SEVERITY_PRIORITY, REVIEW_STATUSES, isValidSeverity } from '../utils/severity.js'; // severity helper
 import { parsePagination, buildPageMeta, setPageHeaders } from '../utils/pagination.js'; // Week 5: paging
 import { notifyOneStaff } from '../services/notificationService.js'; // Week 5: assignment alert
+import { sendTriageOverrideEmail } from '../services/emailService.js';
 
 /**
  * Formats a triage document + its chat history into frontend's expected shape.
@@ -371,6 +373,20 @@ export const updatePatientSeverity = asyncHandler(async (req, res) => {
     status: patient.reviewStatus,
     note: noteMessage,
   });
+
+  // Fetch patient email and send notification
+  let targetEmail = patient.patientEmail;
+  if (!targetEmail && patient.userId) {
+    const user = await User.findById(patient.userId);
+    if (user && user.email) {
+      targetEmail = user.email;
+    }
+  }
+
+  if (targetEmail) {
+    sendTriageOverrideEmail(targetEmail, patient.patientName, newTier, transitionType)
+      .catch(err => console.error('[Notify] Failed to send override email to patient:', err.message));
+  }
 
   const updated = await PatientTriage.findById(id)
     .populate('reviewedBy', 'name staffRole')
