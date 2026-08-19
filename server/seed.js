@@ -55,7 +55,7 @@ export const seedDatabase = async () => {
 
     const patientUser = await User.create({
       name: 'Kamrul Hasan',
-      email: 'kamrul.hasan@soscare.test',
+      email: 'mohd.sabit.232@northsouth.edu',
       phone: '01700000000',
       password: 'Demo@1234',
       role: 'patient',

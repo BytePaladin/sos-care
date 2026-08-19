@@ -27,6 +27,7 @@ export const loginUser = async (req, res) => {
       if (cleanPhone === '01700000000' && (password === 'Demo@1234' || password === 'password123')) {
         user = await User.create({
           name: 'Kamrul Hasan',
+          email: 'mohd.sabit.232@northsouth.edu',
           phone: '01700000000',
           password: 'Demo@1234',
           role: 'patient',
@@ -34,6 +35,7 @@ export const loginUser = async (req, res) => {
       } else if (cleanPhone === '01800000000' && (password === 'Staff@1234' || password === 'password123')) {
         user = await User.create({
           name: 'Dr. Nusrat Jahan',
+          email: 'nusrat.jahan@soscare.test',
           phone: '01800000000',
           password: 'Staff@1234',
           role: 'staff',
@@ -44,6 +46,7 @@ export const loginUser = async (req, res) => {
       } else if (cleanPhone === '01900000000' && (password === 'Staff@1234' || password === 'password123')) {
         user = await User.create({
           name: 'Dr. Tanvir Ahmed',
+          email: 'tanvir.ahmed@soscare.test',
           phone: '01900000000',
           password: 'Staff@1234',
           role: 'staff',
