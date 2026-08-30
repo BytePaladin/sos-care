@@ -635,7 +635,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
               <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
                   <h3 className="font-headline font-semibold text-sm text-neutral-500 uppercase tracking-wider">
-                    {activeTab.replace('_', ' ')} Queue ({filteredPatients.length})
+                    {activeTab?.replace('_', ' ')} Queue ({filteredPatients.length})
                   </h3>
                 </div>
 
@@ -696,7 +696,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                               ? 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
                               : 'bg-primary-container text-on-primary-container'
                           }`}>
-                            {patient.reviewStatus.replace('_', ' ')}
+                            {patient.reviewStatus?.replace('_', ' ')}
                           </span>
 
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -896,7 +896,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                             <span>🛡</span> Safety-net rule triggered — escalated to RED
                           </p>
                           <div className="flex flex-wrap gap-1.5">
-                            {selectedPatient.aiAnalysis.symptomTags.map((tag) => (
+                            {selectedPatient.aiAnalysis?.symptomTags.map((tag) => (
                               <span
                                 key={tag}
                                 className="px-2 py-0.5 rounded text-[10px] font-semibold bg-error/15 text-error border border-error/30"
@@ -915,8 +915,8 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                             Terms that drove the model's decision
                           </p>
                           <div className="space-y-1">
-                            {selectedPatient.aiAnalysis.modelEvidence.slice(0, 5).map((f, i) => {
-                              const max = selectedPatient.aiAnalysis.modelEvidence[0]?.weight || 1;
+                            {selectedPatient.aiAnalysis?.modelEvidence.slice(0, 5).map((f, i) => {
+                              const max = selectedPatient.aiAnalysis?.modelEvidence[0]?.weight || 1;
                               const pct = Math.max(6, Math.round((f.weight / max) * 100));
                               return (
                                 <div key={`${f.term}-${i}`} className="flex items-center gap-2">
@@ -1112,7 +1112,7 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
                         <p className="text-xs font-semibold">Triage Reviewed</p>
                       </div>
                       <div className="text-xs text-neutral-400 space-y-1">
-                        <p>Status: <span className="font-bold text-on-surface capitalize">{selectedPatient.reviewStatus.replace('_', ' ')}</span></p>
+                        <p>Status: <span className="font-bold text-on-surface capitalize">{selectedPatient.reviewStatus?.replace('_', ' ')}</span></p>
                         <p>Reviewed By: <span className="font-bold text-on-surface">{staffList.find(s=>s.id === selectedPatient.reviewedBy)?.name || 'Doctor'}</span></p>
                         {selectedPatient.reviewedAt && (
                           <p>Time: <span className="font-bold text-on-surface">{new Date(selectedPatient.reviewedAt).toLocaleString()}</span></p>

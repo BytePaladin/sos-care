@@ -22,9 +22,26 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
   }, [reportType, selectedEntityId]);
 
   const generatePDF = () => {
-    // We use standard browser print functionality which natively supports "Save as PDF"
-    // This is much more reliable and produces actual searchable text PDFs.
-    window.print();
+    setIsGenerating(true);
+    const element = document.getElementById('print-report');
+    if (!element) { setIsGenerating(false); return; }
+    
+    // Temporarily apply light mode for PDF generation
+    const isCurrentlyDark = document.documentElement.classList.contains('dark');
+    if (isCurrentlyDark) document.documentElement.classList.remove('dark');
+    
+    const opt = {
+      margin:       0.5,
+      filename:     'report.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    
+    html2pdf().set(opt).from(element).save().then(() => {
+      setIsGenerating(false);
+      if (isCurrentlyDark) document.documentElement.classList.add('dark');
+    });
   };
 
   const renderReportContent = () => {
@@ -145,7 +162,7 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
                       <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{new Date(action.createdAt).toLocaleString()}</td>
                       <td className={`border p-2 font-medium ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>{action.actionType}</td>
                       <td className={`border p-2 ${isDark ? 'border-neutral-700' : 'border-gray-300'}`}>
-                        {action.note || (action.actionType === 'STATUS_UPDATE' ? `Set status to ${action.status}` : 'N/A')}
+                        {action.note || (action.actionType === 'STATUS_UPDATE' ? `Set status to ${action.status}` : action.actionType.replace('_', ' '))}
                       </td>
                     </tr>
                   ))}

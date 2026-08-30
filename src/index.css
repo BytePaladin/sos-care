@@ -249,7 +249,7 @@ html, body, #root {
 }
 
 @media print {
-  html, body {
+  html, body, #root {
     background-color: white !important;
   }
   body * {
