@@ -278,7 +278,12 @@ export const addPatientNote = asyncHandler(async (req, res) => {
     note: String(text).trim().slice(0, 200), // truncated part
   });
 
-  res.status(201).json(patient.notes); // return full note list (old contract)
+  const updated = await PatientTriage.findById(id)
+    .populate('reviewedBy', 'name staffRole')
+    .populate('forwardedTo', 'name staffRole');
+
+  const session = await ChatSession.findOne({ triageId: id });
+  res.status(201).json(formatPatient(updated, session));
 });
 
 /**
