@@ -22,26 +22,9 @@ export default function ReportsTab({ isDark, analytics, usersList, staffAnalytic
   }, [reportType, selectedEntityId]);
 
   const generatePDF = () => {
-    setIsGenerating(true);
-    const element = document.getElementById('print-report');
-    if (!element) { setIsGenerating(false); return; }
-    
-    // Temporarily apply light mode for PDF generation
-    const isCurrentlyDark = document.documentElement.classList.contains('dark');
-    if (isCurrentlyDark) document.documentElement.classList.remove('dark');
-    
-    const opt = {
-      margin:       0.5,
-      filename:     'report.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    
-    html2pdf().set(opt).from(element).save().then(() => {
-      setIsGenerating(false);
-      if (isCurrentlyDark) document.documentElement.classList.add('dark');
-    });
+    // We use standard browser print functionality which natively supports "Save as PDF"
+    // This is much more reliable and produces actual searchable text PDFs.
+    window.print();
   };
 
   const renderReportContent = () => {
