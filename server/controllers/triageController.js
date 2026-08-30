@@ -132,9 +132,17 @@ export const getPatients = asyncHandler(async (req, res) => {
             default: 1,
           },
         },
+        // Sort Date: For pending, oldest first (-timestamp). For reviewed, newest first (timestamp).
+        _sortDate: {
+          $cond: [
+            { $eq: ['$reviewStatus', 'pending'] },
+            { $multiply: [{ $toLong: '$screenedAt' }, -1] },
+            { $toLong: '$screenedAt' }
+          ]
+        },
       },
     },
-    { $sort: { _pendingRank: -1, _severityRank: -1, screenedAt: -1 } },
+    { $sort: { _pendingRank: -1, _severityRank: -1, _sortDate: -1 } },
     { $skip: effectiveSkip },
     { $limit: effectiveLimit },
     { $project: { _id: 1 } }, // only the ids — the documents come from find()

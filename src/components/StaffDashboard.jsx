@@ -338,7 +338,10 @@ export default function StaffDashboard({ user, onOpenSettings, onLogout }) {
       const bVal = categoryOrder[b.category] || 0;
       if (aVal !== bVal) return bVal - aVal;
 
-      // Sort by newest screened time
+      // Active triage (FCFS): Oldest screened first. Reviewed: Newest first.
+      if (aPending === 1) {
+        return new Date(a.screenedAt) - new Date(b.screenedAt);
+      }
       return new Date(b.screenedAt) - new Date(a.screenedAt);
     });
   };
