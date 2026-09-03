@@ -1,5 +1,12 @@
 # S.O.S. Care — Symptom Optimized Screener
 
+[![Live Demo](https://img.shields.io/badge/demo-sos--care.vercel.app-brightgreen?style=flat-square)](https://sos-care.vercel.app)
+[![Stack](https://img.shields.io/badge/stack-MERN%20%2B%20Flask%20ML-blue?style=flat-square)]()
+[![Languages](https://img.shields.io/badge/languages-Bangla%20%7C%20English-orange?style=flat-square)]()
+[![Urgency Triage](https://img.shields.io/badge/triage-Green%20%7C%20Yellow%20%7C%20Red-red?style=flat-square)]()
+
+
+
 A patient writes how they feel, in their own words, in English or Bangla. The
 system decides how urgently a clinician needs to see them — **GREEN** (routine),
 **YELLOW** (needs review) or **RED** (urgent) — and the case appears on a triage
